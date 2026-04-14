@@ -4,11 +4,11 @@ import { useRouter } from "next/navigation";
 import Image from "next/image";
 import { supabaseBrowser } from "@/lib/supabase/client";
 
-type Role = "admin_scheduler" | "mechanical_lab";
+type Role = "admin_scheduler" | "AMaTS";
 
 const ROLE_LABELS: Record<Role, string> = {
   admin_scheduler: "Scheduler / Admin",
-  mechanical_lab: "Mechanical Lab",
+  AMaTS: "AMaTS",
 };
 
 export default function SignupPage() {

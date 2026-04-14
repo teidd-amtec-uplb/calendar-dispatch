@@ -23,7 +23,7 @@ export async function GET(req: Request) {
   if (!auth.ok) return auth.response;
 
   const { profile } = auth.data;
-  const isManager = ["admin_scheduler", "mechanical_lab"].includes(profile.role);
+  const isManager = ["admin_scheduler", "AMaTS"].includes(profile.role);
 
   let query = supabaseAdmin
     .from("dispatches")
@@ -67,7 +67,7 @@ export async function GET(req: Request) {
 
 // ─── POST: create dispatch ────────────────────────────────────────────────────
 export async function POST(req: Request) {
-  const auth = await requireRole(req, "admin_scheduler", "mechanical_lab");
+  const auth = await requireRole(req, "admin_scheduler", "AMaTS");
   if (!auth.ok) return auth.response;
 
   const user = auth.data.user;

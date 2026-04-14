@@ -3,7 +3,7 @@ import { supabaseAdmin } from '@/lib/supabase/admin'
 import { requireRole } from '@/lib/auth/requireAccess'
 
 export async function GET(req: Request) {
-  const auth = await requireRole(req, 'admin_scheduler', 'mechanical_lab')
+  const auth = await requireRole(req, 'admin_scheduler', 'AMaTS')
   if (!auth.ok) return auth.response
 
   // Fetch profiles

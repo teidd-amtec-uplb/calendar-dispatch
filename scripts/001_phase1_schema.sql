@@ -90,7 +90,7 @@ UPDATE profiles SET role = 'admin_scheduler' WHERE role IN ('scheduler', 'admin'
 
 -- Add a new check constraint with the full set of valid roles
 ALTER TABLE profiles ADD CONSTRAINT profiles_role_check
-  CHECK (role IN ('engineer', 'technician', 'admin_scheduler', 'mechanical_lab', 'viewer'));
+  CHECK (role IN ('engineer', 'technician', 'admin_scheduler', 'AMaTS', 'viewer'));
 
 -- ─── Done! ──────────────────────────────────────────────────────
 -- Old tables (dispatch_engineers, dispatch_technicians) are kept

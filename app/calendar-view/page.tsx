@@ -271,7 +271,7 @@ export default function CalendarViewPage() {
                           <div key={d.id}
                             onClick={e => { e.stopPropagation(); setSelectedDay(key); setSelectedDispatch(d); }}
                             className="flex items-center gap-1 px-1.5 py-0.5 rounded-md cursor-pointer hover:opacity-80 transition-opacity"
-                            style={{ background: colors.badge, borderLeft: `3px solid ${d.created_by_role === "mechanical_lab" ? "#7B1F2F" : "#1B2A6B"}` }}>
+                            style={{ background: colors.badge, borderLeft: `3px solid ${d.created_by_role === "AMaTS" ? "#7B1F2F" : "#1B2A6B"}` }}>
                             <span className="w-1.5 h-1.5 rounded-full flex-shrink-0"
                               style={{ background: colors.dot }} />
                             <span className="text-xs font-medium truncate"
@@ -327,8 +327,8 @@ export default function CalendarViewPage() {
                       );
                     })()}
                     <span className="px-1.5 py-0.5 rounded-full text-xs font-bold"
-                      style={{ background: selectedDispatch.created_by_role === "mechanical_lab" ? "#FBEEF0" : "#EEF1FB", color: selectedDispatch.created_by_role === "mechanical_lab" ? "#7B1F2F" : "#1B2A6B" }}>
-                      {selectedDispatch.created_by_role === "mechanical_lab" ? "Mech Lab" : "Scheduler"}
+                      style={{ background: selectedDispatch.created_by_role === "AMaTS" ? "#FBEEF0" : "#EEF1FB", color: selectedDispatch.created_by_role === "AMaTS" ? "#7B1F2F" : "#1B2A6B" }}>
+                      {selectedDispatch.created_by_role === "AMaTS" ? "AMaTS" : "Scheduler"}
                     </span>
                   </div>
                 </div>

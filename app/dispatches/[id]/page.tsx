@@ -127,7 +127,7 @@ export default function DispatchDetailPage() {
   const instruments = dispatch.dispatch_instruments ?? [];
   const itinerary = dispatch.dispatch_itinerary ?? [];
   const machines = dispatch.dispatch_machines ?? [];
-  const canEdit = ["admin_scheduler", "mechanical_lab"].includes(role);
+  const canEdit = ["admin_scheduler", "AMaTS"].includes(role);
 
   return (
     <AppLayout>

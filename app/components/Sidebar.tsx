@@ -13,14 +13,19 @@ const BASE_NAV = [
   { href: "/workload-view", label: "Workload", icon: "📊" },
 ];
 
-const MANAGER_NAV = [
+const ADMIN_NAV = [
   { href: "/dashboard", label: "Dashboard", icon: "⊞" },
   { href: "/dispatches", label: "Dispatches", icon: "📋" },
   { href: "/workload-view", label: "Workload", icon: "📊" },
+  { href: "/dispatch/new", label: "New Dispatch", icon: "＋" },
+  { href: "/admin", label: "Admin Panel", icon: "🛡️" },
 ];
 
-const SCHEDULER_ONLY = [
-  { href: "/dispatch/new", label: "New Dispatch", icon: "＋" },
+const AMATS_NAV = [
+  { href: "/dashboard", label: "Dashboard", icon: "⊞" },
+  { href: "/amats", label: "AMaTS Sessions", icon: "📋" },
+  { href: "/workload-view", label: "Workload", icon: "📊" },
+  { href: "/amats/new", label: "New Testing Form", icon: "＋" },
   { href: "/admin", label: "Admin Panel", icon: "🛡️" },
 ];
 
@@ -39,8 +44,8 @@ export default function Sidebar({ email, role, collapsed, onToggle }: SidebarPro
   const supabase = useMemo(() => supabaseBrowser(), []);
   const theme = getThemeForRole(role);
 
-  const isManager = role === "admin_scheduler" || role === "mechanical_lab";
-  const NAV = isManager ? [...MANAGER_NAV, ...SCHEDULER_ONLY] : BASE_NAV;
+  const isManager = role === "admin_scheduler" || role === "AMaTS";
+  const NAV = role === "admin_scheduler" ? ADMIN_NAV : role === "AMaTS" ? AMATS_NAV : BASE_NAV;
 
   const [pending, setPending] = useState<PendingUser[]>([]);
   const [showPending, setShowPending] = useState(false);
@@ -100,7 +105,7 @@ export default function Sidebar({ email, role, collapsed, onToggle }: SidebarPro
             <div>
               <p className="text-white font-bold text-sm leading-tight">AMTEC</p>
               <p className="text-xs leading-tight" style={{ color: theme.accent }}>
-                {role === "mechanical_lab" ? "Mechanical Lab" : "Dispatch Scheduler"}
+                {role === "AMaTS" ? "AMaTS" : "Dispatch Scheduler"}
               </p>
             </div>
           </div>
@@ -183,7 +188,7 @@ export default function Sidebar({ email, role, collapsed, onToggle }: SidebarPro
                       <div className="min-w-0">
                         <p className="text-xs font-semibold text-white truncate">{u.full_name}</p>
                         <p className="text-xs truncate" style={{ color: "rgba(255,255,255,0.5)" }}>
-                          {u.role === "mechanical_lab" ? "Mech Lab" : "Scheduler"}
+                          {u.role === "AMaTS" ? "AMaTS" : "Scheduler"}
                         </p>
                       </div>
                       <button

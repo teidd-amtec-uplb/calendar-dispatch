@@ -3,7 +3,7 @@ import { supabaseAdmin } from '@/lib/supabase/admin'
 import { requireRole } from '@/lib/auth/requireAccess'
 
 export async function PUT(req: Request, { params }: { params: Promise<{ id: string }> }) {
-  const auth = await requireRole(req, 'admin_scheduler', 'mechanical_lab')
+  const auth = await requireRole(req, 'admin_scheduler', 'AMaTS')
   if (!auth.ok) return auth.response
 
   const { id } = await params
@@ -31,7 +31,7 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
 }
 
 export async function DELETE(req: Request, { params }: { params: Promise<{ id: string }> }) {
-  const auth = await requireRole(req, 'admin_scheduler', 'mechanical_lab')
+  const auth = await requireRole(req, 'admin_scheduler', 'AMaTS')
   if (!auth.ok) return auth.response
 
   const { id } = await params

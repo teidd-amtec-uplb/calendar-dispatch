@@ -142,7 +142,7 @@ export default function CalendarPage() {
             <h1 className="text-2xl font-black text-gray-900">Calendar</h1>
             <p className="text-sm text-gray-500 mt-0.5">{dispatches.length} dispatches loaded</p>
           </div>
-          {role === "scheduler" && (
+          {(role === "admin_scheduler" || role === "AMaTS") && (
             <Link href="/dispatch/new"
               className="px-5 py-2.5 rounded-lg text-sm font-bold transition-all hover:opacity-90"
               style={{ background: "#1B2A6B", color: "white" }}>

@@ -15,8 +15,10 @@ type Dispatch = {
   created_at: string;
   type: string;
   location: string;
-  dispatch_engineers: { profiles: { full_name: string } | null }[];
-  dispatch_technicians: { profiles: { full_name: string } | null }[];
+  dispatch_assignments: {
+    assignment_type: "lead_engineer" | "assistant_engineer" | "technician";
+    staff: { full_name: string; initials: string } | null;
+  }[];
 };
 
 const TRANSPORT_LABELS: Record<string, string> = {
@@ -169,7 +171,7 @@ export default function DispatchListPage() {
                 className="px-4 py-2 text-sm border border-gray-300 rounded hover:bg-gray-100 text-gray-700">
                 ← Dashboard
               </Link>
-              {role === "scheduler" && (
+              {(role === "admin_scheduler" || role === "AMaTS") && (
                 <Link href="/dispatch/new"
                   className="px-4 py-2 text-sm text-white rounded hover:opacity-90"
                   style={{ background: "#1B2A6B" }}>
@@ -232,10 +234,14 @@ export default function DispatchListPage() {
                   </tr>
                 ) : (
                   filtered.map((d) => {
-                    const engineers = d.dispatch_engineers
-                      ?.map((e) => e.profiles?.full_name).filter(Boolean).join(", ") || "—";
-                    const technicians = d.dispatch_technicians
-                      ?.map((t) => t.profiles?.full_name).filter(Boolean).join(", ") || "—";
+                    const engineers = d.dispatch_assignments
+                      ?.filter((a) => ["lead_engineer", "assistant_engineer"].includes(a.assignment_type))
+                      .map((a) => a.staff?.initials ?? "?")
+                      .join(", ") || "—";
+                    const technicians = d.dispatch_assignments
+                      ?.filter((a) => a.assignment_type === "technician")
+                      .map((a) => a.staff?.initials ?? "?")
+                      .join(", ") || "—";
                     const isExporting = exportingId === d.id;
                     return (
                       <tr key={d.id}

@@ -49,7 +49,7 @@ export async function getAuthUser(req: Request): Promise<
 
 /**
  * Check if user has one of the required roles.
- * Usage: const auth = await requireRole(req, 'admin_scheduler', 'mechanical_lab');
+ * Usage: const auth = await requireRole(req, 'admin_scheduler', 'AMaTS');
  */
 export async function requireRole(req: Request, ...allowedRoles: string[]): Promise<
   { ok: true; data: AuthResult } | { ok: false; response: NextResponse }

@@ -141,7 +141,7 @@ export default function EditDispatchPage() {
         body: JSON.stringify({ userId: data.user.id }),
       });
       const meData = await meRes.json();
-      if (!['admin_scheduler', 'mechanical_lab'].includes(meData.profile?.role)) {
+      if (!['admin_scheduler', 'AMaTS'].includes(meData.profile?.role)) {
         router.push("/dashboard"); return;
       }
 

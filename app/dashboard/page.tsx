@@ -176,7 +176,7 @@ export default function DashboardPage() {
 
   const todayKey = toKey(new Date());
   const selectedDispatches = selectedDate ? (dispatchMap[selectedDate] ?? []) : [];
-  const isScheduler = role === "admin_scheduler" || role === "mechanical_lab";
+  const isScheduler = role === "admin_scheduler" || role === "AMaTS";
   const theme = getThemeForRole(role);
 
   if (loading) return (
@@ -296,8 +296,8 @@ export default function DashboardPage() {
                         <div key={d.id}
                           onClick={e => { e.stopPropagation(); router.push(`/dispatches/${d.id}`); }}
                           className="flex items-center gap-1 text-xs rounded-md px-1.5 py-0.5 truncate mb-0.5 cursor-pointer hover:opacity-80 transition-opacity"
-                          style={{ background: st.bg, color: st.color, borderLeft: `3px solid ${d.created_by_role === "mechanical_lab" ? "#7B1F2F" : "#1B2A6B"}` }}
-                          title={`${d.dispatch_number ?? d.company_name ?? "Dispatch"} — ${d.created_by_role === "mechanical_lab" ? "Mech Lab" : "Scheduler"}`}>
+                          style={{ background: st.bg, color: st.color, borderLeft: `3px solid ${d.created_by_role === "AMaTS" ? "#7B1F2F" : "#1B2A6B"}` }}
+                          title={`${d.dispatch_number ?? d.company_name ?? "Dispatch"} — ${d.created_by_role === "AMaTS" ? "AMaTS" : "Scheduler"}`}>
                           <span className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ background: st.dot }} />
                           <span className="truncate font-medium">
                             {d.company_name ?? d.dispatch_number ?? "Dispatch"}
@@ -362,8 +362,8 @@ export default function DashboardPage() {
                               {d.status}
                             </span>
                             <span className="px-1.5 py-0.5 rounded-full text-xs font-bold"
-                              style={{ background: d.created_by_role === "mechanical_lab" ? "#FBEEF0" : "#EEF1FB", color: d.created_by_role === "mechanical_lab" ? "#7B1F2F" : "#1B2A6B" }}>
-                              {d.created_by_role === "mechanical_lab" ? "ML" : "S"}
+                              style={{ background: d.created_by_role === "AMaTS" ? "#FBEEF0" : "#EEF1FB", color: d.created_by_role === "AMaTS" ? "#7B1F2F" : "#1B2A6B" }}>
+                              {d.created_by_role === "AMaTS" ? "AMaTS" : "S"}
                             </span>
                           </div>
                           <p className="text-xs text-gray-400 mt-1">{d.date_from} → {d.date_to}</p>
@@ -439,8 +439,8 @@ export default function DashboardPage() {
                         className="hover:bg-blue-50/40 transition-colors cursor-pointer">
                         <td className="px-3 py-2 border-b border-gray-100 font-mono font-semibold text-gray-700 whitespace-nowrap">
                           <div className="flex items-center gap-1.5">
-                            <span className="w-2.5 h-2.5 rounded-full shrink-0" title={d.created_by_role === "mechanical_lab" ? "Created by Mech Lab" : "Created by Scheduler"}
-                              style={{ background: d.created_by_role === "mechanical_lab" ? "#7B1F2F" : "#1B2A6B" }} />
+                            <span className="w-2.5 h-2.5 rounded-full shrink-0" title={d.created_by_role === "AMaTS" ? "Created by AMaTS" : "Created by Scheduler"}
+                              style={{ background: d.created_by_role === "AMaTS" ? "#7B1F2F" : "#1B2A6B" }} />
                             {d.dispatch_number ?? "—"}
                           </div>
                         </td>

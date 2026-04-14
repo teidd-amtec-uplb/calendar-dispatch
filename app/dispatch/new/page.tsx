@@ -123,7 +123,7 @@ export default function NewDispatchPage() {
       });
       const meData = await meRes.json();
       const userRole = meData.profile?.role ?? "";
-      if (!['admin_scheduler', 'mechanical_lab'].includes(userRole)) {
+      if (!['admin_scheduler', 'AMaTS'].includes(userRole)) {
         router.push("/dashboard"); return;
       }
 
@@ -180,7 +180,7 @@ export default function NewDispatchPage() {
 
     fetchAvailability();
     return () => { cancelled = true; };
-  }, [dateFrom, dateTo, id]);
+  }, [dateFrom, dateTo]);
 
   // ── Auto-deselect staff that become unavailable ─────────────────────────────
   useEffect(() => {

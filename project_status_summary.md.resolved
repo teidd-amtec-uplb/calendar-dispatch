@@ -8,7 +8,7 @@ This document outlines the current state of the application, summarizing what ha
 
 ### 1. Core Architecture & Authentication
 - **Tech Stack:** Next.js (App Router), TypeScript, Tailwind CSS, Supabase (PostgreSQL + Auth).
-- **Role-Based Access:** Logins split into `admin_scheduler`, `mechanical_lab`, `staff`, and `pending_verification`.
+- **Role-Based Access:** Logins split into `admin_scheduler`, `AMaTS`, `staff`, and `pending_verification`.
 - **Public & Private Routing:** Public calendar exists, but dispatch creation and workload editing require specific admin/staff roles.
 
 ### 2. Comprehensive Database Schema

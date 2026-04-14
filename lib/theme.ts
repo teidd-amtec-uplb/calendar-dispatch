@@ -1,6 +1,6 @@
 // Role-based theme configuration
 // Default = Navy/Gold (admin_scheduler, staff, etc.)
-// Mechanical Lab = Maroon/Rose
+// AMaTS = Maroon/Rose
 
 export type ThemeColors = {
   primary: string;
@@ -22,7 +22,7 @@ const DEFAULT_THEME: ThemeColors = {
   sidebarTo: "#1B2A6B",
 };
 
-const MECH_LAB_THEME: ThemeColors = {
+const AMaTS_THEME: ThemeColors = {
   primary: "#7B1F2F",
   primaryDark: "#5A1020",
   primaryLight: "#FBEEF0",
@@ -33,7 +33,7 @@ const MECH_LAB_THEME: ThemeColors = {
 };
 
 export function getThemeForRole(role: string): ThemeColors {
-  if (role === "mechanical_lab") return MECH_LAB_THEME;
+  if (role === "AMaTS") return AMaTS_THEME;
   return DEFAULT_THEME;
 }
 

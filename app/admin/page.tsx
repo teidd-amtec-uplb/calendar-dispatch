@@ -44,7 +44,7 @@ export default function AdminPage() {
       const meData = await meRes.json()
       const userRole = meData.profile?.role ?? ''
 
-      if (!['admin_scheduler', 'mechanical_lab'].includes(userRole)) {
+      if (!['admin_scheduler', 'AMaTS'].includes(userRole)) {
         router.push('/dashboard')
         return
       }

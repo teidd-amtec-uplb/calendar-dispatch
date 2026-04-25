@@ -1,15 +1,21 @@
 "use client";
+// ─────────────────────────────────────────────────────────────────────────────
+// app/dispatches/[id]/page.tsx  (UPDATED)
+// Added: DocumentExportModal replacing the old "Export PDF" button
+// ─────────────────────────────────────────────────────────────────────────────
+
 import { useEffect, useMemo, useState } from "react";
 import { useRouter, useParams } from "next/navigation";
 import { supabaseBrowser } from "@/lib/supabase/client";
 import Link from "next/link";
 import AppLayout from "../../components/AppLayout";
+import DocumentExportModal from "../../components/DocumentExportModal";
 
 const TRANSPORT_LABELS: Record<string, string> = {
-  public_conveyance: "Public Conveyance",
+  public_conveyance:      "Public Conveyance",
   test_applicant_vehicle: "Test Applicant Vehicle",
-  college_vehicle: "College Vehicle",
-  other: "Other",
+  college_vehicle:        "College Vehicle",
+  other:                  "Other",
 };
 
 const TYPE_LABELS: Record<string, string> = {
@@ -17,10 +23,7 @@ const TYPE_LABELS: Record<string, string> = {
   in_house: "In-house",
 };
 
-// ─── Status ──────────────────────────────────────────────────────────────────
 type DispatchStatus = "Pending" | "Scheduled" | "Re-scheduled" | "Ongoing" | "Cancelled" | "Done" | "Unknown";
-
-
 
 const STATUS_STYLES: Record<DispatchStatus, { bg: string; color: string }> = {
   Pending:        { bg: "#FEF3C7", color: "#92400E" },
@@ -48,12 +51,12 @@ export default function DispatchDetailPage() {
   const { id } = useParams<{ id: string }>();
   const supabase = useMemo(() => supabaseBrowser(), []);
 
-  const [loading, setLoading] = useState(true);
-  const [dispatch, setDispatch] = useState<any>(null);
-  const [error, setError] = useState("");
-  const [role, setRole] = useState("");
-  const [token, setToken] = useState("");
-  const [exportingPdf, setExportingPdf] = useState(false);
+  const [loading,      setLoading]      = useState(true);
+  const [dispatch,     setDispatch]     = useState<any>(null);
+  const [error,        setError]        = useState("");
+  const [role,         setRole]         = useState("");
+  const [token,        setToken]        = useState("");
+  const [showDocModal, setShowDocModal] = useState(false);
 
   useEffect(() => {
     async function load() {
@@ -84,34 +87,6 @@ export default function DispatchDetailPage() {
     load();
   }, [id, router, supabase]);
 
-  async function handleExportPdf() {
-    if (!token) return;
-    setExportingPdf(true);
-    try {
-      const res = await fetch(`/api/dispatches/${id}/pdf`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      if (!res.ok) {
-        const json = await res.json().catch(() => ({}));
-        alert(json.error ?? "Failed to generate PDF");
-        return;
-      }
-      const blob = await res.blob();
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = `dispatch-${dispatch?.dispatch_number ?? id}.pdf`;
-      document.body.appendChild(a);
-      a.click();
-      a.remove();
-      URL.revokeObjectURL(url);
-    } catch {
-      alert("Failed to generate PDF. Please try again.");
-    } finally {
-      setExportingPdf(false);
-    }
-  }
-
   if (loading) return (
     <div className="min-h-screen flex items-center justify-center bg-gray-50">
       <p className="text-gray-400 text-sm">Loading dispatch...</p>
@@ -125,9 +100,9 @@ export default function DispatchDetailPage() {
   );
 
   const instruments = dispatch.dispatch_instruments ?? [];
-  const itinerary = dispatch.dispatch_itinerary ?? [];
-  const machines = dispatch.dispatch_machines ?? [];
-  const canEdit = ["admin_scheduler", "AMaTS"].includes(role);
+  const itinerary   = dispatch.dispatch_itinerary ?? [];
+  const machines    = dispatch.dispatch_machines ?? [];
+  const canEdit     = ["admin_scheduler", "AMaTS"].includes(role);
 
   return (
     <AppLayout>
@@ -155,34 +130,20 @@ export default function DispatchDetailPage() {
                 className="px-4 py-2 text-sm border border-gray-300 rounded hover:bg-gray-100 text-gray-700">
                 ← Back to List
               </Link>
+
+              {/* ── Export Documents button ──────────────────────────────── */}
               <button
-                onClick={handleExportPdf}
-                disabled={exportingPdf}
-                className="px-4 py-2 text-sm border rounded flex items-center gap-2 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
-                style={{
-                  borderColor: "#1B2A6B",
-                  color: exportingPdf ? "#6B7280" : "#1B2A6B",
-                  background: "white",
-                }}>
-                {exportingPdf ? (
-                  <>
-                    <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24" fill="none">
-                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/>
-                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"/>
-                    </svg>
-                    Generating...
-                  </>
-                ) : (
-                  <>
-                    <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none"
-                      viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                      <path strokeLinecap="round" strokeLinejoin="round"
-                        d="M12 10v6m0 0l-3-3m3 3l3-3M3 17V7a2 2 0 012-2h6l2 2h6a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2z" />
-                    </svg>
-                    Export PDF
-                  </>
-                )}
+                onClick={() => setShowDocModal(true)}
+                className="px-4 py-2 text-sm border rounded flex items-center gap-2 transition-colors"
+                style={{ borderColor: "#1B2A6B", color: "#1B2A6B", background: "white" }}>
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none"
+                  viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round"
+                    d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+                </svg>
+                Export Documents
               </button>
+
               {canEdit && (
                 <Link href={`/dispatches/${dispatch.id}/edit`}
                   className="px-4 py-2 text-sm text-white rounded hover:opacity-90"
@@ -196,17 +157,17 @@ export default function DispatchDetailPage() {
           {/* Main Info */}
           <Section title="Dispatch Information">
             <Grid>
-              <Field label="Company Name" value={dispatch.company_name} />
-              <Field label="Contact Info" value={dispatch.contact_info} />
-              <Field label="Date From" value={dispatch.date_from} />
-              <Field label="Date To" value={dispatch.date_to} />
-              <Field label="Type" value={TYPE_LABELS[dispatch.type] ?? dispatch.type} />
-              <Field label="Location" value={dispatch.type === "in_house" ? "AMTEC" : dispatch.testing_location} />
+              <Field label="Company Name"  value={dispatch.company_name} />
+              <Field label="Contact Info"  value={dispatch.contact_info} />
+              <Field label="Date From"     value={dispatch.date_from} />
+              <Field label="Date To"       value={dispatch.date_to} />
+              <Field label="Type"          value={TYPE_LABELS[dispatch.type] ?? dispatch.type} />
+              <Field label="Location"      value={dispatch.type === "in_house" ? "AMTEC" : dispatch.testing_location} />
               <Field label="Transport Mode" value={TRANSPORT_LABELS[dispatch.transport_mode] ?? dispatch.transport_mode} />
               {dispatch.transport_mode === "other" && (
                 <Field label="Transport (Other)" value={dispatch.transport_other_text} />
               )}
-              <Field label="Is Extended" value={dispatch.is_extended ? "Yes" : "No"} />
+              <Field label="Is Extended"   value={dispatch.is_extended ? "Yes" : "No"} />
               {dispatch.is_extended && (
                 <Field label="Extended Days" value={String(dispatch.extended_days ?? "—")} />
               )}
@@ -223,7 +184,9 @@ export default function DispatchDetailPage() {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <Section title="Engineers">
               {(() => {
-                const engineers = (dispatch.dispatch_assignments ?? []).filter((a: any) => ['engineer', 'lead_engineer', 'assistant_engineer'].includes(a.assignment_type));
+                const engineers = (dispatch.dispatch_assignments ?? []).filter(
+                  (a: any) => ["engineer", "lead_engineer", "assistant_engineer"].includes(a.assignment_type)
+                );
                 return engineers.length === 0 ? (
                   <p className="text-sm text-gray-400 italic">No engineers assigned.</p>
                 ) : (
@@ -232,6 +195,9 @@ export default function DispatchDetailPage() {
                       <li key={e.id} className="text-sm text-gray-700 flex items-center gap-2">
                         <span className="w-2 h-2 rounded-full bg-blue-400 inline-block" />
                         {e.staff?.full_name ?? e.profiles?.full_name ?? "Unknown"}
+                        {e.assignment_type === "lead_engineer" && (
+                          <span className="text-xs text-blue-500 font-medium">(Lead)</span>
+                        )}
                       </li>
                     ))}
                   </ul>
@@ -240,7 +206,9 @@ export default function DispatchDetailPage() {
             </Section>
             <Section title="Technicians">
               {(() => {
-                const technicians = (dispatch.dispatch_assignments ?? []).filter((a: any) => a.assignment_type === 'technician');
+                const technicians = (dispatch.dispatch_assignments ?? []).filter(
+                  (a: any) => a.assignment_type === "technician"
+                );
                 return technicians.length === 0 ? (
                   <p className="text-sm text-gray-400 italic">No technicians assigned.</p>
                 ) : (
@@ -344,7 +312,7 @@ export default function DispatchDetailPage() {
                           <span className="px-2 py-0.5 rounded-full text-xs font-semibold"
                             style={{
                               background: m.status === "Passed" ? "#D1FAE5" : "#FEE2E2",
-                              color: m.status === "Passed" ? "#065F46" : "#991B1B",
+                              color:      m.status === "Passed" ? "#065F46"  : "#991B1B",
                             }}>
                             {m.status}
                           </span>
@@ -359,9 +327,21 @@ export default function DispatchDetailPage() {
 
         </div>
       </div>
+
+      {/* Document Export Modal */}
+      {showDocModal && (
+        <DocumentExportModal
+          dispatchId={id}
+          dispatchNumber={dispatch.dispatch_number ?? id}
+          token={token}
+          onClose={() => setShowDocModal(false)}
+        />
+      )}
     </AppLayout>
   );
 }
+
+// ── Sub-components (unchanged from original) ──────────────────────────────────
 
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (

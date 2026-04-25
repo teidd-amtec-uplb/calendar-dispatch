@@ -402,20 +402,28 @@ export default function WorkloadViewPage() {
       if (!notes) { setApplyingBulk(false); return; } // canceled
     }
 
+    // Parse keys — format is "<uuid>_<dayNumber>" (UUIDs only use hyphens, not underscores)
     const payloadCells = Array.from(selectedCells).map(key => {
-      const parts = key.split("_");
+      const lastUnderscore = key.lastIndexOf("_");
+      const profile_id = key.substring(0, lastUnderscore);
+      const dayNum = parseInt(key.substring(lastUnderscore + 1));
       return {
-        profile_id: parts[0],
-        event_date: getDayKey(year, month, parseInt(parts[1]))
+        profile_id,
+        event_date: getDayKey(year, month, dayNum)
       };
     });
 
     try {
-      await fetch("/api/staff-events", {
+      const res = await fetch("/api/staff-events", {
         method: "POST",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${authToken}` },
         body: JSON.stringify({ bulk: true, cells: payloadCells, event_type: eventType, notes })
       });
+      if (!res.ok) {
+        const errData = await res.json().catch(() => ({}));
+        alert(`Failed to save: ${errData.error ?? res.statusText}`);
+        return;
+      }
       setSelectedCells(new Set()); // clear selection
       load(year, month);
     } catch {
@@ -892,13 +900,14 @@ function StaffRow({ person, days, year, month, r, idx, todayDay, onTooltip, even
           cellMarker = "";
         }
 
-        const clickable = isAdmin && !dispatch; // admin can edit non-dispatch cells
+        // Admin can select and edit any cell that is not a dispatch-bound day
+        const selectable = isAdmin && !dispatch;
 
         return (
           <td key={d} className="border-b border-r border-[#121212] text-center transition-colors p-0 relative select-none"
             style={{ minWidth: 28 }}
-            onPointerDown={clickable ? (e) => onPointerDown(e, d, c) : undefined}
-            onPointerEnter={() => onPointerEnter(c)}>
+            onPointerDown={selectable ? (e) => onPointerDown(e, d, c) : undefined}
+            onPointerEnter={isAdmin ? () => onPointerEnter(c) : undefined}>
             
             <div className="w-full h-full flex flex-col items-center justify-center transition-all min-h-[1.5rem]"
               style={{
@@ -906,7 +915,7 @@ function StaffRow({ person, days, year, month, r, idx, todayDay, onTooltip, even
                 outline: isSelected ? "2px solid #3B82F6" : cellBorder,
                 outlineOffset: "-2px",
                 zIndex: isSelected ? 10 : 1,
-                cursor: clickable ? "cell" : "default"
+                cursor: selectable ? "cell" : "default"
               }}
               onMouseEnter={(dispatch || event) ? (e) => onTooltip({
                 x: e.clientX, y: e.clientY,

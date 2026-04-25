@@ -14,8 +14,6 @@ import { generateTravelRequest }  from "@/lib/documents/generators/travel-reques
 import { generateAcceptanceForm } from "@/lib/documents/generators/acceptance-form";
 import type { DocumentDispatchData } from "@/lib/documents/types";
 
-const resend = new Resend(process.env.RESEND_API_KEY!);
-
 export async function GET(
   req: Request,
   { params }: { params: Promise<{ id: string }> }
@@ -23,6 +21,10 @@ export async function GET(
   // ── Auth (uses your real getAuthUser from requireAccess.ts) ───────────────
   const auth = await getAuthUser(req);
   if (!auth.ok) return auth.response;
+
+  // Initialize Resend inside the handler to avoid build-time errors
+  const resend = new Resend(process.env.RESEND_API_KEY || "missing_key");
+
 
   const { id } = await params;
 

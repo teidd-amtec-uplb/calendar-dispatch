@@ -41,7 +41,7 @@ function cell(
   opts?: {
     borders?: any;
     shading?: any;
-    verticalAlign?: (typeof VerticalAlign)[keyof typeof VerticalAlign];
+    verticalAlign?: any;
     columnSpan?: number;
     rowSpan?: number;
     margins?: any;
@@ -76,14 +76,14 @@ function headerCell(text: string, width: number, opts?: { columnSpan?: number })
   );
 }
 
-function labelCell(text: string, width: number) {
+function labelCell(text: string, width: number, opts?: { columnSpan?: number; rowSpan?: number }) {
   return cell(
     [new Paragraph({
       children: [txt(text, { bold: true, size: 17 })],
       spacing: { before: 0, after: 0 },
     })],
     width,
-    { borders: ALL_BORDERS, shading: { fill: "F2F2F2", type: ShadingType.CLEAR } }
+    { borders: ALL_BORDERS, shading: { fill: "F2F2F2", type: ShadingType.CLEAR }, ...opts }
   );
 }
 

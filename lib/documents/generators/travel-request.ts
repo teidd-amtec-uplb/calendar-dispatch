@@ -128,7 +128,7 @@ function buildFormTable(
   return new Table({
     width: { size: FORM_W, type: WidthType.DXA },
     columnWidths: [LABEL_W, VALUE_W],
-    borders: { top: NO_B, bottom: NO_B, left: NO_B, right: NO_B, insideH: NO_B, insideV: NO_B },
+    borders: { top: NO_B, bottom: NO_B, left: NO_B, right: NO_B, insideHorizontal: NO_B, insideVertical: NO_B },
     rows: [
       // ── University header ───────────────────────────────────────────────
       new TableRow({ children: [tc([
@@ -273,7 +273,7 @@ function buildPersonPage(
   return new Table({
     width: { size: CONTENT_W, type: WidthType.DXA },
     columnWidths: [FORM_W, GUTTER, FORM_W],
-    borders: { top: NO_B, bottom: NO_B, left: NO_B, right: NO_B, insideH: NO_B, insideV: NO_B },
+    borders: { top: NO_B, bottom: NO_B, left: NO_B, right: NO_B, insideHorizontal: NO_B, insideVertical: NO_B },
     rows: [
       new TableRow({
         children: [

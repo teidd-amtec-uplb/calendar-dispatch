@@ -1,4 +1,6 @@
-// -----------------------------------------------------------------------------
+const fs = require("fs");
+
+const newCode = `// -----------------------------------------------------------------------------
 // lib/documents/generators/acceptance-form.ts
 // Generates the AMTEC SAL Sample Acceptance Form as DOCX
 // -----------------------------------------------------------------------------
@@ -25,11 +27,10 @@ const B_T_NONE = { ...ALL_BORDERS, top: NO_BORDER };
 
 const BLUE_FILL = { fill: "1B2A6B", type: ShadingType.CLEAR };
 
-function txt(text: string, opts?: { bold?: boolean; size?: number; font?: string; color?: string; underline?: boolean; italic?: boolean }) {
+function txt(text: string, opts?: { bold?: boolean; size?: number; font?: string; color?: string; underline?: boolean }) {
   return new TextRun({
     text,
     bold: opts?.bold ?? false,
-    italics: opts?.italic ?? false,
     size: opts?.size ?? 18, // 9pt
     font: opts?.font ?? "Arial",
     color: opts?.color ?? "000000",
@@ -40,7 +41,7 @@ function txt(text: string, opts?: { bold?: boolean; size?: number; font?: string
 function p(text: string | TextRun[], opts?: { align?: (typeof AlignmentType)[keyof typeof AlignmentType]; bold?: boolean; color?: string; size?: number; before?: number; after?: number }) {
   let runs: TextRun[];
   if (typeof text === "string") {
-    runs = text.split("\n").flatMap((line, i, arr) => 
+    runs = text.split("\\n").flatMap((line, i, arr) => 
       i === arr.length - 1 ? [txt(line, opts)] : [txt(line, opts), new TextRun({ break: 1 })]
     );
   } else {
@@ -84,9 +85,9 @@ function valueCell(text: string, units: number, opts?: { borders?: any }) {
 export async function generateAcceptanceForm(dispatch: DocumentDispatchData): Promise<Buffer> {
   const personnel  = extractPersonnel(dispatch);
   const engineers  = personnel.filter(p => ["lead_engineer", "assistant_engineer"].includes(p.assignment_type));
-  const initials   = engineers.map(e => e.initials).join(", ") || "ï¿½";
+  const initials   = engineers.map(e => e.initials).join(", ") || "—";
   const machines   = dispatch.dispatch_machines ?? [];
-  const dispatchNo = dispatch.dispatch_number ?? "ï¿½";
+  const dispatchNo = dispatch.dispatch_number ?? "—";
 
   const rows: TableRow[] = [];
 
@@ -124,10 +125,10 @@ export async function generateAcceptanceForm(dispatch: DocumentDispatchData): Pr
 
   // Row 4: Table Header
   rows.push(new TableRow({ children: [
-    headerCell("SAL No.\n(to be filled up by SAL staff)", 8),
-    headerCell("TAM No./ Machine Brand and Model\n(to be filled up by TE)", 14),
-    headerCell("Machine\n(to be filled up by TE)", 14),
-    headerCell("List of Samples\n(to be filled up by SAL staff)", 24)
+    headerCell("SAL No.\\n(to be filled up by SAL staff)", 8),
+    headerCell("TAM No./ Machine Brand and Model\\n(to be filled up by TE)", 14),
+    headerCell("Machine\\n(to be filled up by TE)", 14),
+    headerCell("List of Samples\\n(to be filled up by SAL staff)", 24)
   ]}));
 
   // Min 6 machine rows (using faked row spans)
@@ -209,3 +210,7 @@ export async function generateAcceptanceForm(dispatch: DocumentDispatchData): Pr
 
   return Packer.toBuffer(doc);
 }
+`;
+
+fs.writeFileSync("lib/documents/generators/acceptance-form.ts", newCode);
+console.log("Done SAL");

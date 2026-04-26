@@ -17,13 +17,17 @@ import {
 
 // -- DXA constants -------------------------------------------------------------
 const PAGE_W    = 12240; // 8.5 in
-const PAGE_H    = 15840; // 11 in (Portrait)
+const PAGE_H    = 18720; // 13 in (Long Bond / Folio)
 const MARGIN    = 720;   // 0.5 in
 const CONTENT_W = PAGE_W - MARGIN * 2; // 10800 DXA
 
 const NO_BORDER   = { style: BorderStyle.NONE,   size: 0, color: "FFFFFF" };
 const THIN_BORDER = { style: BorderStyle.SINGLE, size: 4, color: "000000" };
 const ALL_BORDERS = { top: THIN_BORDER, bottom: THIN_BORDER, left: THIN_BORDER, right: THIN_BORDER };
+
+const B_B_NONE = { ...ALL_BORDERS, bottom: NO_BORDER };
+const B_T_NONE = { ...ALL_BORDERS, top: NO_BORDER };
+const B_Y_NONE = { ...ALL_BORDERS, top: NO_BORDER, bottom: NO_BORDER };
 
 const BLUE_FILL = { fill: "1B2A6B", type: ShadingType.CLEAR };
 const GRAY_FILL = { fill: "F2F2F2", type: ShadingType.CLEAR };
@@ -33,7 +37,7 @@ function txt(text: string, opts?: { bold?: boolean; size?: number; font?: string
   return new TextRun({
     text,
     bold: opts?.bold ?? false,
-    size: opts?.size ?? 16, // Default 8pt for dense form
+    size: opts?.size ?? 16, // Default 8pt
     font: opts?.font ?? "Arial",
     color: opts?.color ?? "000000",
     underline: opts?.underline ? {} : undefined,
@@ -52,7 +56,7 @@ function p(text: string | TextRun[], opts?: { align?: (typeof AlignmentType)[key
   return new Paragraph({
     children: runs,
     alignment: opts?.align ?? AlignmentType.LEFT,
-    spacing: { before: opts?.before ?? 30, after: opts?.after ?? 30 },
+    spacing: { before: opts?.before ?? 15, after: opts?.after ?? 15 },
   });
 }
 
@@ -63,7 +67,6 @@ function cell(
     borders?: any;
     shading?: any;
     verticalAlign?: any;
-    rowSpan?: number;
     margins?: any;
   }
 ) {
@@ -73,21 +76,20 @@ function cell(
     shading: opts?.shading,
     verticalAlign: opts?.verticalAlign ?? VerticalAlign.CENTER,
     columnSpan: units,
-    rowSpan: opts?.rowSpan,
-    margins: opts?.margins ?? { top: 30, bottom: 30, left: 60, right: 60 },
+    margins: opts?.margins ?? { top: 20, bottom: 20, left: 40, right: 40 },
   });
 }
 
-function labelCell(text: string, units: number, opts?: { align?: any; rowSpan?: number }) {
-  return cell([p(text, { bold: true, align: opts?.align })], units, { shading: GRAY_FILL, rowSpan: opts?.rowSpan });
+function labelCell(text: string, units: number, opts?: { align?: any; borders?: any }) {
+  return cell([p(text, { bold: true, align: opts?.align })], units, { shading: GRAY_FILL, borders: opts?.borders });
 }
 
-function headerCell(text: string, units: number, opts?: { rowSpan?: number }) {
-  return cell([p(text, { bold: true, align: AlignmentType.CENTER })], units, { shading: GRAY_FILL, rowSpan: opts?.rowSpan });
+function headerCell(text: string, units: number, opts?: { borders?: any }) {
+  return cell([p(text, { bold: true, align: AlignmentType.CENTER })], units, { shading: GRAY_FILL, borders: opts?.borders });
 }
 
-function valueCell(text: string, units: number) {
-  return cell([p(text)], units);
+function valueCell(text: string, units: number, opts?: { borders?: any }) {
+  return cell([p(text)], units, { borders: opts?.borders });
 }
 
 export async function generateDispatchForm(dispatch: DocumentDispatchData): Promise<Buffer> {
@@ -109,13 +111,12 @@ export async function generateDispatchForm(dispatch: DocumentDispatchData): Prom
   const isOth  = dispatch.transport_mode === "other";
   const otherT = dispatch.transport_other_text ?? "";
 
-  // Rows builder
   const rows: TableRow[] = [];
 
   // Row 1: DISPATCH FORM
   rows.push(new TableRow({
     children: [
-      cell([p("DISPATCH FORM", { bold: true, size: 24, color: "FFFFFF", align: AlignmentType.CENTER, before: 60, after: 60 })], 60, { shading: BLUE_FILL })
+      cell([p("DISPATCH FORM", { bold: true, size: 22, color: "FFFFFF", align: AlignmentType.CENTER, before: 60, after: 60 })], 60, { shading: BLUE_FILL })
     ]
   }));
 
@@ -126,7 +127,7 @@ export async function generateDispatchForm(dispatch: DocumentDispatchData): Prom
   rows.push(new TableRow({ children: [
     labelCell("Date of Travel", 15),
     valueCell(dateRange, 20),
-    cell([p("? Extended until ________________ (____ days)", { size: 14 })], 25, { shading: GRAY_FILL })
+    cell([p("[ ] Extended until ________________ (____ days)", { size: 14 })], 25, { shading: GRAY_FILL })
   ]}));
 
   // Row 4: Location
@@ -148,7 +149,7 @@ export async function generateDispatchForm(dispatch: DocumentDispatchData): Prom
     headerCell("Remarks", 13)
   ]}));
 
-  // Rows 8-25: Instruments (18 rows to match image density)
+  // Rows 8-25: Instruments (18 rows)
   const instNames = instruments.map(i => i.instrument_name);
   while (instNames.length < 18) instNames.push("");
   instNames.slice(0, 18).forEach(name => {
@@ -166,31 +167,35 @@ export async function generateDispatchForm(dispatch: DocumentDispatchData): Prom
   // Row 28: Mode of Transport
   rows.push(new TableRow({ children: [
     labelCell("Mode of Transport:", 15),
-    cell([p((isPub ? "? " : "? ") + "Public Conveyance")], 10, { shading: isPub ? YELLOW_FILL : undefined }),
-    cell([p((isAppl ? "? " : "? ") + "Test Applicant Vehicle")], 13, { shading: isAppl ? YELLOW_FILL : undefined }),
-    cell([p((isCol ? "? " : "? ") + "College Vehicle")], 10, { shading: isCol ? YELLOW_FILL : undefined }),
-    cell([p((isOth ? "? " : "? ") + "Others: " + otherT)], 12, { shading: isOth ? YELLOW_FILL : undefined })
+    cell([p((isPub ? "[X] " : "[ ] ") + "Public Conveyance")], 10, { shading: isPub ? YELLOW_FILL : undefined }),
+    cell([p((isAppl ? "[X] " : "[ ] ") + "Test Applicant Vehicle")], 13, { shading: isAppl ? YELLOW_FILL : undefined }),
+    cell([p((isCol ? "[X] " : "[ ] ") + "College Vehicle")], 10, { shading: isCol ? YELLOW_FILL : undefined }),
+    cell([p((isOth ? "[X] " : "[ ] ") + "Others: " + otherT)], 12, { shading: isOth ? YELLOW_FILL : undefined })
   ]}));
 
   // Row 29: Other details
   rows.push(new TableRow({ children: [ labelCell("Other Travel Details:", 15), valueCell(dispatch.notes ?? "", 45) ] }));
 
-  // Row 30: Itinerary Header 1
+  // Row 30: Itinerary Header 1 (Fake row span start)
   rows.push(new TableRow({ children: [
-    labelCell("Travel Itinerary:", 15, { rowSpan: 8 }),
-    headerCell("Date", 5, { rowSpan: 2 }),
+    labelCell("Travel Itinerary:", 15, { borders: B_B_NONE }),
+    headerCell("Date", 5, { borders: B_B_NONE }),
     headerCell("Per Diem\\n(Check (/) if provided by Test Applicant, otherwise cross mark (X). NA if not applicable)", 13),
-    headerCell("Time of Travel\\n(00:00 to 00:00)", 9, { rowSpan: 2 }),
-    headerCell("Working/Productive Hours\\n(00:00 to 00:00)", 9, { rowSpan: 2 }),
+    headerCell("Time of Travel\\n(00:00 to 00:00)", 9, { borders: B_B_NONE }),
+    headerCell("Working/Productive Hours\\n(00:00 to 00:00)", 9, { borders: B_B_NONE }),
     headerCell("Overtime hours", 9)
   ]}));
 
   // Row 31: Itinerary Header 2
   rows.push(new TableRow({ children: [
+    cell([p("")], 15, { shading: GRAY_FILL, borders: B_Y_NONE }), // C1
+    cell([p("")], 5, { shading: GRAY_FILL, borders: B_T_NONE }),  // Date (end)
     headerCell("Accommodation", 7),
     headerCell("B", 2),
     headerCell("L", 2),
     headerCell("D", 2),
+    cell([p("")], 9, { shading: GRAY_FILL, borders: B_T_NONE }),  // Time (end)
+    cell([p("")], 9, { shading: GRAY_FILL, borders: B_T_NONE }),  // Work (end)
     headerCell("(For offset)", 5),
     headerCell("(For billing)", 4)
   ]}));
@@ -198,8 +203,11 @@ export async function generateDispatchForm(dispatch: DocumentDispatchData): Prom
   // Rows 32-37: Itinerary rows (6 rows)
   const itinData = [...itinerary];
   while (itinData.length < 6) itinData.push({} as any);
-  itinData.slice(0, 6).forEach(row => {
+  itinData.slice(0, 6).forEach((row, i) => {
+    const isLast = i === 5;
+    const c1Borders = isLast ? B_T_NONE : B_Y_NONE;
     rows.push(new TableRow({ children: [
+      cell([p("")], 15, { shading: GRAY_FILL, borders: c1Borders }),
       valueCell(row.travel_date ?? "", 5),
       valueCell(row.per_diem_accommodation ?? "", 7),
       valueCell(row.per_diem_b ?? "", 2),
@@ -313,4 +321,4 @@ export async function generateDispatchForm(dispatch: DocumentDispatchData): Prom
 `;
 
 fs.writeFileSync("lib/documents/generators/dispatch-form.ts", newCode);
-console.log("Done");
+console.log("Done rewrite");

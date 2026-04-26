@@ -1,4 +1,6 @@
-// -----------------------------------------------------------------------------
+const fs = require("fs");
+
+const newCode = `// -----------------------------------------------------------------------------
 // lib/documents/generators/acceptance-form.ts
 // Generates the AMTEC SAL Sample Acceptance Form as DOCX
 // -----------------------------------------------------------------------------
@@ -41,7 +43,7 @@ function txt(text: string, opts?: { bold?: boolean; size?: number; font?: string
 function p(text: string | TextRun[], opts?: { align?: (typeof AlignmentType)[keyof typeof AlignmentType]; bold?: boolean; color?: string; size?: number; before?: number; after?: number; italic?: boolean }) {
   let runs: TextRun[];
   if (typeof text === "string") {
-    runs = text.split("\n").flatMap((line, i, arr) => 
+    runs = text.split("\\n").flatMap((line, i, arr) => 
       i === arr.length - 1 ? [txt(line, opts)] : [txt(line, opts), new TextRun({ break: 1 })]
     );
   } else {
@@ -85,9 +87,9 @@ function valueCell(text: string, units: number, opts?: { borders?: any }) {
 export async function generateAcceptanceForm(dispatch: DocumentDispatchData): Promise<Buffer> {
   const personnel  = extractPersonnel(dispatch);
   const engineers  = personnel.filter(p => ["lead_engineer", "assistant_engineer"].includes(p.assignment_type));
-  const initials   = engineers.map(e => e.initials).join(", ") || "ï¿½";
+  const initials   = engineers.map(e => e.initials).join(", ") || "—";
   const machines   = dispatch.dispatch_machines ?? [];
-  const dispatchNo = dispatch.dispatch_number ?? "ï¿½";
+  const dispatchNo = dispatch.dispatch_number ?? "—";
 
   const rows: TableRow[] = [];
 
@@ -126,10 +128,10 @@ export async function generateAcceptanceForm(dispatch: DocumentDispatchData): Pr
 
   // Row 4: Table Header
   rows.push(new TableRow({ children: [
-    headerCell("SAL No.\n(to be filled up by SAL staff)", 8),
-    headerCell("TAM No./ Machine Brand and Model\n(to be filled up by TE)", 14),
-    headerCell("Machine\n(to be filled up by TE)", 14),
-    headerCell("List of Samples\n(to be filled up by SAL staff)", 24)
+    headerCell("SAL No.\\n(to be filled up by SAL staff)", 8),
+    headerCell("TAM No./ Machine Brand and Model\\n(to be filled up by TE)", 14),
+    headerCell("Machine\\n(to be filled up by TE)", 14),
+    headerCell("List of Samples\\n(to be filled up by SAL staff)", 24)
   ]}));
 
   // Min 6 machine rows. But each machine has 3 sub-rows.
@@ -144,15 +146,15 @@ export async function generateAcceptanceForm(dispatch: DocumentDispatchData): Pr
     const brandModel = [m.tam_no, m.brand, m.model].filter(Boolean).join(" ");
     const machine = m.machine ?? "";
 
-    // The character ï¿½ (U+2022) is extremely safe for docx.
+    // The character • (U+2022) is extremely safe for docx.
     // Sub-row A (No. of Trials)
     rows.push(new TableRow({ children: [
       valueCell("", 8, { borders: B_B_NONE }),
       cell([p(brandModel, { align: AlignmentType.CENTER })], 14, { borders: B_B_NONE }),
       cell([p(machine, { align: AlignmentType.CENTER })], 14, { borders: B_B_NONE }),
-      valueCell("ï¿½ No. of Trials", 8),
-      valueCell("ï¿½", 8),
-      valueCell("ï¿½", 8)
+      valueCell("• No. of Trials", 8),
+      valueCell("•", 8),
+      valueCell("•", 8)
     ]}));
 
     // Sub-row B (MC)
@@ -160,9 +162,9 @@ export async function generateAcceptanceForm(dispatch: DocumentDispatchData): Pr
       valueCell("", 8, { borders: B_Y_NONE }),
       valueCell("", 14, { borders: B_Y_NONE }),
       valueCell("", 14, { borders: B_Y_NONE }),
-      valueCell("ï¿½ MC", 8),
-      valueCell("ï¿½", 8),
-      valueCell("ï¿½", 8)
+      valueCell("• MC", 8),
+      valueCell("•", 8),
+      valueCell("•", 8)
     ]}));
 
     // Sub-row C (Empty)
@@ -170,9 +172,9 @@ export async function generateAcceptanceForm(dispatch: DocumentDispatchData): Pr
       valueCell("", 8, { borders: B_T_NONE }),
       valueCell("", 14, { borders: B_T_NONE }),
       valueCell("", 14, { borders: B_T_NONE }),
-      valueCell("ï¿½", 8),
-      valueCell("ï¿½", 8),
-      valueCell("ï¿½", 8)
+      valueCell("•", 8),
+      valueCell("•", 8),
+      valueCell("•", 8)
     ]}));
   });
 
@@ -239,3 +241,7 @@ export async function generateAcceptanceForm(dispatch: DocumentDispatchData): Pr
 
   return Packer.toBuffer(doc);
 }
+`;
+
+fs.writeFileSync("lib/documents/generators/acceptance-form.ts", newCode);
+console.log("Done SAL update");

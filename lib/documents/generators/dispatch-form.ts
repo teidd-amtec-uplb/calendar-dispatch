@@ -74,7 +74,7 @@ function cell(
     shading: opts?.shading,
     verticalAlign: opts?.verticalAlign ?? VerticalAlign.CENTER,
     columnSpan: units,
-    margins: opts?.margins ?? { top: 40, bottom: 40, left: 30, right: 30 },
+    margins: opts?.margins ?? { top: 15, bottom: 15, left: 30, right: 30 },
   });
 }
 

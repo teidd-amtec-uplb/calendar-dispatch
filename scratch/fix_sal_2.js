@@ -1,4 +1,6 @@
-// -----------------------------------------------------------------------------
+const fs = require("fs");
+
+const newCode = `// -----------------------------------------------------------------------------
 // lib/documents/generators/acceptance-form.ts
 // Generates the AMTEC SAL Sample Acceptance Form as DOCX
 // -----------------------------------------------------------------------------
@@ -47,7 +49,7 @@ function txt(text: string, opts?: { bold?: boolean; size?: number; font?: string
 function p(text: string | TextRun | TextRun[], opts?: { align?: (typeof AlignmentType)[keyof typeof AlignmentType]; bold?: boolean; color?: string; size?: number; before?: number; after?: number; italic?: boolean }) {
   let runs: TextRun[];
   if (typeof text === "string") {
-    runs = text.split("\n").flatMap((line, i, arr) => 
+    runs = text.split("\\n").flatMap((line, i, arr) => 
       i === arr.length - 1 ? [txt(line, opts)] : [txt(line, opts), new TextRun({ break: 1 })]
     );
   } else if (Array.isArray(text)) {
@@ -93,9 +95,9 @@ function valueCell(text: string, units: number, opts?: { borders?: any }) {
 export async function generateAcceptanceForm(dispatch: DocumentDispatchData): Promise<Buffer> {
   const personnel  = extractPersonnel(dispatch);
   const engineers  = personnel.filter(p => ["lead_engineer", "assistant_engineer"].includes(p.assignment_type));
-  const initials   = engineers.map(e => e.initials).join(", ") || "ï¿½";
+  const initials   = engineers.map(e => e.initials).join(", ") || "—";
   const machines   = dispatch.dispatch_machines ?? [];
-  const dispatchNo = dispatch.dispatch_number ?? "ï¿½";
+  const dispatchNo = dispatch.dispatch_number ?? "—";
 
   const rows: TableRow[] = [];
 
@@ -111,7 +113,6 @@ export async function generateAcceptanceForm(dispatch: DocumentDispatchData): Pr
           width: 50, // resize appropriately
           height: 50,
         },
-        type: "png"
       });
     }
   } catch (err) {
@@ -171,10 +172,10 @@ export async function generateAcceptanceForm(dispatch: DocumentDispatchData): Pr
   // Row 4: Table Header
   // Make all 6 columns exactly equal in size (10 units each)
   rows.push(new TableRow({ children: [
-    headerCell("SAL No.\n(to be filled up by SAL staff)", 10),
-    headerCell("TAM No./ Machine Brand and Model\n(to be filled up by TE)", 10),
-    headerCell("Machine\n(to be filled up by TE)", 10),
-    headerCell("List of Samples\n(to be filled up by SAL staff)", 30) // Spans the 3 sample columns
+    headerCell("SAL No.\\n(to be filled up by SAL staff)", 10),
+    headerCell("TAM No./ Machine Brand and Model\\n(to be filled up by TE)", 10),
+    headerCell("Machine\\n(to be filled up by TE)", 10),
+    headerCell("List of Samples\\n(to be filled up by SAL staff)", 30) // Spans the 3 sample columns
   ]}));
 
   // Min 5 machine rows.
@@ -280,3 +281,7 @@ export async function generateAcceptanceForm(dispatch: DocumentDispatchData): Pr
 
   return Packer.toBuffer(doc);
 }
+`;
+
+fs.writeFileSync("lib/documents/generators/acceptance-form.ts", newCode);
+console.log("Done SAL update 2");

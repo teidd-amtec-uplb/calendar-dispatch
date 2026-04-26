@@ -1,4 +1,6 @@
-// -----------------------------------------------------------------------------
+const fs = require("fs");
+
+const newCode = `// -----------------------------------------------------------------------------
 // lib/documents/generators/acceptance-form.ts
 // Generates the AMTEC SAL Sample Acceptance Form as DOCX
 // -----------------------------------------------------------------------------
@@ -40,7 +42,7 @@ function txt(text: string, opts?: { bold?: boolean; size?: number; font?: string
 function p(text: string | TextRun | TextRun[], opts?: { align?: (typeof AlignmentType)[keyof typeof AlignmentType]; bold?: boolean; color?: string; size?: number; before?: number; after?: number; italic?: boolean }) {
   let runs: TextRun[];
   if (typeof text === "string") {
-    runs = text.split("\n").flatMap((line, i, arr) => 
+    runs = text.split("\\n").flatMap((line, i, arr) => 
       i === arr.length - 1 ? [txt(line, opts)] : [txt(line, opts), new TextRun({ break: 1 })]
     );
   } else if (Array.isArray(text)) {
@@ -78,9 +80,9 @@ function cell(
 export async function generateAcceptanceForm(dispatch: DocumentDispatchData): Promise<Buffer> {
   const personnel  = extractPersonnel(dispatch);
   const engineers  = personnel.filter(p => ["lead_engineer", "assistant_engineer"].includes(p.assignment_type));
-  const initials   = engineers.map(e => e.initials).join(", ") || "ï¿½";
+  const initials   = engineers.map(e => e.initials).join(", ") || "—";
   const machines   = dispatch.dispatch_machines ?? [];
-  const dispatchNo = dispatch.dispatch_number ?? "ï¿½";
+  const dispatchNo = dispatch.dispatch_number ?? "—";
 
   const rows: TableRow[] = [];
 
@@ -116,13 +118,13 @@ export async function generateAcceptanceForm(dispatch: DocumentDispatchData): Pr
   rows.push(new TableRow({ children: [
     cell([
       new Paragraph({
-        children: [txt("Dispatch No:     ", { bold: true }), txt(` ${dispatchNo} `, { underline: true })],
+        children: [txt("Dispatch No:     ", { bold: true }), txt(\` \${dispatchNo} \`, { underline: true })],
         spacing: { before: 60, after: 60 }
       })
     ], 20, { borders: { top: T, bottom: T, left: T, right: N } }),
     cell([
       new Paragraph({
-        children: [txt("Test Engineer/s:     ", { bold: true }), txt(` ${initials} `, { underline: true })],
+        children: [txt("Test Engineer/s:     ", { bold: true }), txt(\` \${initials} \`, { underline: true })],
         spacing: { before: 60, after: 60 }
       })
     ], 20, { borders: { top: T, bottom: T, left: N, right: N } }),
@@ -136,10 +138,10 @@ export async function generateAcceptanceForm(dispatch: DocumentDispatchData): Pr
 
   // Row 4: Table Header
   rows.push(new TableRow({ children: [
-    cell([p("SAL No.\n(to be filled up by SAL staff)", { bold: true, align: AlignmentType.CENTER })], 8, { borders: { top: T, bottom: T, left: T, right: t } }),
-    cell([p("TAM No./ Machine Brand and Model\n(to be filled up by TE)", { bold: true, align: AlignmentType.CENTER })], 11, { borders: { top: T, bottom: T, left: t, right: t } }),
-    cell([p("Machine\n(to be filled up by TE)", { bold: true, align: AlignmentType.CENTER })], 11, { borders: { top: T, bottom: T, left: t, right: t } }),
-    cell([p("List of Samples\n(to be filled up by SAL staff)", { bold: true, align: AlignmentType.CENTER })], 30, { borders: { top: T, bottom: T, left: t, right: T } })
+    cell([p("SAL No.\\n(to be filled up by SAL staff)", { bold: true, align: AlignmentType.CENTER })], 8, { borders: { top: T, bottom: T, left: T, right: t } }),
+    cell([p("TAM No./ Machine Brand and Model\\n(to be filled up by TE)", { bold: true, align: AlignmentType.CENTER })], 11, { borders: { top: T, bottom: T, left: t, right: t } }),
+    cell([p("Machine\\n(to be filled up by TE)", { bold: true, align: AlignmentType.CENTER })], 11, { borders: { top: T, bottom: T, left: t, right: t } }),
+    cell([p("List of Samples\\n(to be filled up by SAL staff)", { bold: true, align: AlignmentType.CENTER })], 30, { borders: { top: T, bottom: T, left: t, right: T } })
   ]}));
 
   const MIN_M = 5;
@@ -271,3 +273,7 @@ export async function generateAcceptanceForm(dispatch: DocumentDispatchData): Pr
 
   return Packer.toBuffer(doc);
 }
+`;
+
+fs.writeFileSync("lib/documents/generators/acceptance-form.ts", newCode);
+console.log("Done SAL update 3");

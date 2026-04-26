@@ -1,4 +1,7 @@
-// -----------------------------------------------------------------------------
+const fs = require("fs");
+const path = require("path");
+
+const newCode = `// -----------------------------------------------------------------------------
 // lib/documents/generators/acceptance-form.ts
 // Generates the AMTEC SAL Sample Acceptance Form as DOCX
 // -----------------------------------------------------------------------------
@@ -79,9 +82,9 @@ function cell(
 export async function generateAcceptanceForm(dispatch: DocumentDispatchData): Promise<Buffer> {
   const personnel  = extractPersonnel(dispatch);
   const engineers  = personnel.filter(p => ["lead_engineer", "assistant_engineer"].includes(p.assignment_type));
-  const initials   = engineers.map(e => e.initials).join(", ") || "ï¿½";
+  const initials   = engineers.map(e => e.initials).join(", ") || "—";
   const machines   = dispatch.dispatch_machines ?? [];
-  const dispatchNo = dispatch.dispatch_number ?? "ï¿½";
+  const dispatchNo = dispatch.dispatch_number ?? "—";
 
   const rows: TableRow[] = [];
 
@@ -146,7 +149,7 @@ export async function generateAcceptanceForm(dispatch: DocumentDispatchData): Pr
   ]}));
 
   // Row 4: Table Header (SAL=8, TAM=11, Machine=11, Samples=30)
-  const hdrSub = (t: string) => txt("\n" + t, { size: 14, italic: true });
+  const hdrSub = (t: string) => txt("\\n" + t, { size: 14, italic: true });
   rows.push(new TableRow({ children: [
     cell([p([txt("SAL No.", { bold: true }), hdrSub("(to be filled up by SAL staff)")], { align: AlignmentType.CENTER })], 8),
     cell([p([txt("TAM No./ Machine Brand and Model", { bold: true }), hdrSub("(to be filled up by TE)")], { align: AlignmentType.CENTER })], 11),
@@ -163,8 +166,8 @@ export async function generateAcceptanceForm(dispatch: DocumentDispatchData): Pr
     const brandModel = [m.tam_no, m.brand, m.model].filter(Boolean).join(" ");
     const machine = m.machine ?? "";
 
-    // Bullet character: U+2022 ï¿½ (Safe in Arial)
-    const b = () => txt("ï¿½  ", { font: "Arial", size: 18 });
+    // Bullet character: U+2022 • (Safe in Arial)
+    const b = () => txt("•  ", { font: "Arial", size: 18 });
 
     // Sub-row A
     rows.push(new TableRow({ children: [
@@ -268,3 +271,7 @@ export async function generateAcceptanceForm(dispatch: DocumentDispatchData): Pr
 
   return Packer.toBuffer(doc);
 }
+`;
+
+fs.writeFileSync("lib/documents/generators/acceptance-form.ts", newCode);
+console.log("Done EXACT SAL");

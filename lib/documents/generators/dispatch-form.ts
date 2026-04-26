@@ -5,7 +5,7 @@
 
 import {
   Document, Packer, Paragraph, TextRun, Table, TableRow, TableCell,
-  BorderStyle, WidthType, AlignmentType, VerticalAlign, ShadingType,
+  BorderStyle, WidthType, AlignmentType, VerticalAlign, ShadingType, TableLayoutType,
 } from "docx";
 
 import {
@@ -54,7 +54,7 @@ function p(text: string | TextRun[], opts?: { align?: (typeof AlignmentType)[key
   return new Paragraph({
     children: runs,
     alignment: opts?.align ?? AlignmentType.LEFT,
-    spacing: { before: opts?.before ?? 15, after: opts?.after ?? 15 },
+    spacing: { before: opts?.before ?? 0, after: opts?.after ?? 0 },
   });
 }
 
@@ -74,7 +74,7 @@ function cell(
     shading: opts?.shading,
     verticalAlign: opts?.verticalAlign ?? VerticalAlign.CENTER,
     columnSpan: units,
-    margins: opts?.margins ?? { top: 20, bottom: 20, left: 40, right: 40 },
+    margins: opts?.margins ?? { top: 15, bottom: 15, left: 30, right: 30 },
   });
 }
 
@@ -257,8 +257,8 @@ export async function generateDispatchForm(dispatch: DocumentDispatchData): Prom
 
   // Row 48: Remarks / Notes Value
   rows.push(new TableRow({ children: [
-    cell([p(dispatch.remarks_observation ?? "", { before: 200, after: 200 })], 30, { verticalAlign: VerticalAlign.TOP }),
-    cell([p("", { before: 200, after: 200 })], 30, { verticalAlign: VerticalAlign.TOP })
+    cell([p(dispatch.remarks_observation ?? "", { before: 100, after: 100 })], 30, { verticalAlign: VerticalAlign.TOP }),
+    cell([p("", { before: 100, after: 100 })], 30, { verticalAlign: VerticalAlign.TOP })
   ]}));
 
   // Row 49: Signatures Header
@@ -272,19 +272,19 @@ export async function generateDispatchForm(dispatch: DocumentDispatchData): Prom
   // Row 50: Signatures Value
   rows.push(new TableRow({ children: [
     cell([
-      p("DR. ARTHUR L. FAJARDO", { bold: true, align: AlignmentType.CENTER, before: 600, after: 0 }),
+      p("DR. ARTHUR L. FAJARDO", { bold: true, align: AlignmentType.CENTER, before: 350, after: 0 }),
       p("AMTEC Director", { align: AlignmentType.CENTER, before: 0 })
     ], 15),
     cell([
-      p("Signature over Name", { align: AlignmentType.CENTER, before: 600, after: 0 }),
+      p("Signature over Name", { align: AlignmentType.CENTER, before: 350, after: 0 }),
       p("Test Coordinator", { align: AlignmentType.CENTER, before: 0 })
     ], 15),
     cell([
-      p("Signature over Name", { align: AlignmentType.CENTER, before: 600, after: 0 }),
+      p("Signature over Name", { align: AlignmentType.CENTER, before: 350, after: 0 }),
       p("Test Coordinator", { align: AlignmentType.CENTER, before: 0 })
     ], 15),
     cell([
-      p("Signature over Name", { align: AlignmentType.CENTER, before: 600, after: 0 }),
+      p("Signature over Name", { align: AlignmentType.CENTER, before: 350, after: 0 }),
       p("Test Engineer", { align: AlignmentType.CENTER, before: 0 })
     ], 15)
   ]}));
@@ -298,6 +298,7 @@ export async function generateDispatchForm(dispatch: DocumentDispatchData): Prom
   // Build Table
   const table = new Table({
     width: { size: CONTENT_W, type: WidthType.DXA },
+    layout: TableLayoutType.FIXED,
     columnWidths: Array(60).fill(180),
     rows,
   });

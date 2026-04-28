@@ -104,6 +104,7 @@ export default function CalendarViewPage() {
   const [loading, setLoading] = useState(true);
   const [selectedDay, setSelectedDay] = useState<string | null>(null);
   const [selectedDispatch, setSelectedDispatch] = useState<Dispatch | null>(null);
+  const [selectedAmatsSession, setSelectedAmatsSession] = useState<AmatsSession | null>(null);
   const [filterStatus, setFilterStatus] = useState<string>("All");
   const [filterSource, setFilterSource] = useState<'all'|'dispatch'|'amats'>('all');
   const [amatsSessions, setAmatsSessions] = useState<AmatsSession[]>([]);
@@ -160,12 +161,14 @@ export default function CalendarViewPage() {
     else setMonth(m => m - 1);
     setSelectedDay(null);
     setSelectedDispatch(null);
+    setSelectedAmatsSession(null);
   }
   function nextMonth() {
     if (month === 11) { setMonth(0); setYear(y => y + 1); }
     else setMonth(m => m + 1);
     setSelectedDay(null);
     setSelectedDispatch(null);
+    setSelectedAmatsSession(null);
   }
 
   const dayDispatches = selectedDay ? (map[selectedDay] ?? []) : [];
@@ -475,6 +478,116 @@ export default function CalendarViewPage() {
                 </button>
               </div>
             </div>
+          ) : selectedAmatsSession ? (
+            // ── AMaTS Session detail ─────────────────────────────────────────
+            <div className="flex flex-col h-full overflow-y-auto">
+              {/* Header */}
+              <div className="px-5 py-4 border-b border-gray-100 flex items-start justify-between"
+                style={{ background: '#F0FDFA' }}>
+                <div className="flex-1 min-w-0">
+                  <p className="text-xs font-mono" style={{ color: '#0D9488' }}>🧪 {selectedAmatsSession.session_number}</p>
+                  <h2 className="text-base font-black text-gray-900 mt-0.5 leading-tight">
+                    {selectedAmatsSession.machine_name_or_code ?? selectedAmatsSession.machine}
+                  </h2>
+                  <div className="mt-2 flex items-center gap-2">
+                    {(() => {
+                      const colors = STATUS_COLORS[selectedAmatsSession.status] ?? STATUS_COLORS.Scheduled;
+                      return (
+                        <span className="px-2.5 py-1 rounded-full text-xs font-bold"
+                          style={{ background: colors.badge, color: colors.badgeText }}>
+                          {selectedAmatsSession.status}
+                        </span>
+                      );
+                    })()}
+                    <span className="px-1.5 py-0.5 rounded-full text-xs font-bold"
+                      style={{ background: 'rgba(13,148,136,0.12)', color: '#0D9488' }}>
+                      AMaTS Testing
+                    </span>
+                  </div>
+                </div>
+                <button onClick={() => setSelectedAmatsSession(null)}
+                  className="ml-2 w-7 h-7 flex items-center justify-center rounded-lg hover:bg-teal-100 text-gray-400 text-lg transition-colors">×</button>
+              </div>
+
+              <div className="flex-1 px-5 py-4 space-y-5">
+                {/* Schedule */}
+                <Section title="Schedule">
+                  <Row label="Date From" value={selectedAmatsSession.date_from?.slice(0,16).replace('T',' ') ?? '—'} />
+                  <Row label="Date To" value={selectedAmatsSession.date_to?.slice(0,16).replace('T',' ') ?? '—'} />
+                </Section>
+
+                {/* Machine */}
+                <Section title="Machine">
+                  <Row label="Type" value={selectedAmatsSession.machine} />
+                  {selectedAmatsSession.machine_name_or_code && (
+                    <Row label="Name / Code" value={selectedAmatsSession.machine_name_or_code} />
+                  )}
+                </Section>
+
+                {/* Tests */}
+                {selectedAmatsSession.amats_session_tests?.length > 0 && (
+                  <Section title={`Tests (${selectedAmatsSession.amats_session_tests.length})`}>
+                    <div className="space-y-1">
+                      {selectedAmatsSession.amats_session_tests.map(t => (
+                        <div key={t.id} className="flex items-center gap-2 py-0.5">
+                          <span className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ background: '#0D9488' }} />
+                          <span className="text-xs text-gray-700">{t.test_name}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </Section>
+                )}
+
+                {/* Personnel */}
+                {selectedAmatsSession.amats_session_assignments?.length > 0 && (() => {
+                  const engineers = selectedAmatsSession.amats_session_assignments.filter(a => a.assignment_type === 'test_engineer');
+                  const technicians = selectedAmatsSession.amats_session_assignments.filter(a => a.assignment_type === 'test_technician');
+                  return (
+                    <Section title="Assigned Personnel">
+                      {engineers.length > 0 && (
+                        <div className="mb-2">
+                          <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-1">Test Engineers</p>
+                          {engineers.map(a => (
+                            <div key={a.id} className="flex items-center gap-2 py-1">
+                              <div className="w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold text-white flex-shrink-0"
+                                style={{ background: '#0D9488' }}>
+                                {a.staff?.initials ?? a.staff?.full_name?.charAt(0) ?? '?'}
+                              </div>
+                              <span className="text-sm text-gray-700">{a.staff?.full_name ?? 'Unknown'}</span>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                      {technicians.length > 0 && (
+                        <div>
+                          <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-1">Test Technicians</p>
+                          {technicians.map(a => (
+                            <div key={a.id} className="flex items-center gap-2 py-1">
+                              <div className="w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold text-white flex-shrink-0"
+                                style={{ background: '#059669' }}>
+                                {a.staff?.initials ?? a.staff?.full_name?.charAt(0) ?? '?'}
+                              </div>
+                              <span className="text-sm text-gray-700">{a.staff?.full_name ?? 'Unknown'}</span>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                      {engineers.length === 0 && technicians.length === 0 && (
+                        <p className="text-sm text-gray-400 italic">No personnel assigned.</p>
+                      )}
+                    </Section>
+                  );
+                })()}
+              </div>
+
+              {/* Back button */}
+              <div className="px-5 py-3 border-t border-gray-100">
+                <button onClick={() => setSelectedAmatsSession(null)}
+                  className="w-full py-2 rounded-lg text-sm font-semibold text-gray-600 hover:bg-gray-100 transition-colors border border-gray-200">
+                  ← Back to day
+                </button>
+              </div>
+            </div>
           ) : selectedDay ? (
             // ── Day dispatches list ──────────────────────────────────────────
             <div className="flex flex-col h-full">
@@ -501,7 +614,15 @@ export default function CalendarViewPage() {
                       const technicians = d._type==='amats' ? [] : (d.dispatch_assignments||[]).filter((a: {assignment_type:string}) => a.assignment_type === "technician");
                       return (
                         <div key={d.id}
-                          onClick={() => d._type==='amats'?(window.location.href='/amats/'+d.id):setSelectedDispatch(d)}
+                          onClick={() => {
+                            if (d._type === 'amats') {
+                              setSelectedAmatsSession(d as AmatsSession);
+                              setSelectedDispatch(null);
+                            } else {
+                              setSelectedDispatch(d as Dispatch);
+                              setSelectedAmatsSession(null);
+                            }
+                          }}
                           className="rounded-xl border p-4 cursor-pointer hover:shadow-md transition-all"
                           style={{ borderColor: colors.dot + "40", background: colors.bg }}>
                           <div className="flex items-start justify-between gap-2">
@@ -538,7 +659,7 @@ export default function CalendarViewPage() {
                               ))}
                             </div>
                           )}
-                          <p className="text-xs text-gray-400 mt-2 font-medium">{d._type==='amats'?'View AMaTS Session →':'Tap to see details →'}</p>
+                          <p className="text-xs text-gray-400 mt-2 font-medium">{d._type==='amats'?'Tap to see AMaTS details →':'Tap to see details →'}</p>
                         </div>
                       );
                     })}

@@ -330,10 +330,21 @@ export async function generateTravelRequest(dispatch: DocumentDispatchData): Pro
   const rawPersonnel = extractPersonnel(dispatch);
   const longTrip     = isLongTrip(dispatch.date_from, dispatch.date_to);
 
-  const personnel = rawPersonnel.map(p => ({
-    ...p,
-    isLead: p.assignment_type === "lead_engineer",
-  }));
+  // If no personnel found (staff join returned null for all assignments),
+  // generate one blank placeholder form so the document is never empty.
+  const PLACEHOLDER: StaffMember & { isLead: boolean } = {
+    staff_id:        "",
+    full_name:       "______________________________",
+    initials:        "___",
+    designation:     "______________________________",
+    assignment_type: "lead_engineer",
+    isLead:          true,
+  };
+
+  const personnel: (StaffMember & { isLead: boolean })[] =
+    rawPersonnel.length > 0
+      ? rawPersonnel.map(p => ({ ...p, isLead: p.assignment_type === "lead_engineer" }))
+      : [PLACEHOLDER];
 
   const sections = personnel.map((person, idx) => ({
     properties: {
@@ -349,3 +360,4 @@ export async function generateTravelRequest(dispatch: DocumentDispatchData): Pro
   const doc = new Document({ sections });
   return Packer.toBuffer(doc);
 }
+

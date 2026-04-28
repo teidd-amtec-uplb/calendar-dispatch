@@ -42,6 +42,7 @@ export default function AMaTSSessionDetailPage() {
   const [session, setSession] = useState<AmatsSession | null>(null);
   const [loading, setLoading] = useState(true);
   const [userRole, setUserRole] = useState<string | null>(null);
+  const [copied, setCopied] = useState(false);
 
   useEffect(() => {
     const init = async () => {
@@ -99,6 +100,72 @@ export default function AMaTSSessionDetailPage() {
     (a) => a.assignment_type === "test_technician"
   );
 
+  // ── Build the messenger-ready copy text ─────────────────────────────────────
+  function buildCopyText(): string {
+    const dateLabel = new Date(session!.date_from).toLocaleDateString("en-US", {
+      month: "long",
+      day: "numeric",
+      year: "numeric",
+    });
+
+    const lines: string[] = [];
+    lines.push(`Mechanical Laboratory Tests for ${dateLabel}`);
+    lines.push("");
+
+    const machineHeader = [
+      session!.machine_name_or_code,
+      session!.machine,
+    ]
+      .filter(Boolean)
+      .join(" ");
+
+    session!.amats_session_tests.forEach((t, i) => {
+      lines.push(`${i + 1}. ${machineHeader}`);
+      lines.push(t.test_name);
+
+      // Time line — use date_from time if it's a datetime
+      const fromDate = new Date(session!.date_from);
+      const timeStr = fromDate.toLocaleTimeString("en-US", {
+        hour: "numeric",
+        minute: "2-digit",
+        hour12: true,
+      });
+      const toDate = new Date(session!.date_to);
+      const toStr = toDate.toLocaleTimeString("en-US", {
+        hour: "numeric",
+        minute: "2-digit",
+        hour12: true,
+      });
+      lines.push(`Time: ${timeStr} - ${toStr}`);
+
+      const engNames = testEngineers
+        .map((a) => a.staff?.initials ?? a.staff?.full_name ?? "")
+        .filter(Boolean)
+        .join(", ");
+      lines.push(`Engineer/s: ${engNames || "—"}`);
+
+      const techNames = testTechnicians
+        .map((a) => a.staff?.initials ?? a.staff?.full_name ?? "")
+        .filter(Boolean)
+        .join(", ");
+      lines.push(`Technician/s – ${techNames || "—"}`);
+
+      if (i < session!.amats_session_tests.length - 1) lines.push("");
+    });
+
+    return lines.join("\n");
+  }
+
+  async function handleCopy() {
+    try {
+      await navigator.clipboard.writeText(buildCopyText());
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2500);
+    } catch {
+      alert("Could not copy. Please try manually.");
+    }
+  }
+
   return (
     <AppLayout>
       <div className="max-w-4xl mx-auto px-4 py-8">
@@ -120,6 +187,33 @@ export default function AMaTSSessionDetailPage() {
             <span className={`px-3 py-1 rounded-full text-sm font-medium border ${getStatusColor(session.status)}`}>
               {session.status}
             </span>
+            {/* Copy for Group Chat */}
+            <button
+              onClick={handleCopy}
+              title="Copy for Messenger Group Chat"
+              className="flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-lg border transition-all"
+              style={{
+                borderColor: copied ? '#16a34a' : '#6B7280',
+                color: copied ? '#16a34a' : '#374151',
+                background: copied ? '#f0fdf4' : 'white',
+              }}
+            >
+              {copied ? (
+                <>
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                  </svg>
+                  Copied!
+                </>
+              ) : (
+                <>
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                  </svg>
+                  Copy for Chat
+                </>
+              )}
+            </button>
             {isManager && (
               <button
                 onClick={() => alert("Edit session is not implemented yet.")}

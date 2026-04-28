@@ -38,6 +38,7 @@ export default function AMaTSSessionsPage() {
   const [loading, setLoading] = useState(true);
   const [userRole, setUserRole] = useState<string | null>(null);
   const [search, setSearch] = useState("");
+  const [copiedAll, setCopiedAll] = useState(false);
 
   useEffect(() => {
     const init = async () => {
@@ -74,6 +75,71 @@ export default function AMaTSSessionsPage() {
       (s.machine_name_or_code || "").toLowerCase().includes(search.toLowerCase())
   );
 
+  // ── Build grouped messenger copy text for all (or filtered) sessions ─────────────
+  function buildAllCopyText(): string {
+    // Group sessions by date_from date
+    const byDate = new Map<string, AmatsSummary[]>();
+    filtered.forEach((s) => {
+      const dateKey = s.date_from.slice(0, 10); // YYYY-MM-DD
+      if (!byDate.has(dateKey)) byDate.set(dateKey, []);
+      byDate.get(dateKey)!.push(s);
+    });
+
+    const sections: string[] = [];
+
+    byDate.forEach((daySessions, dateKey) => {
+      const dateLabel = new Date(dateKey + "T00:00:00").toLocaleDateString("en-US", {
+        month: "long",
+        day: "numeric",
+        year: "numeric",
+      });
+
+      const lines: string[] = [];
+      lines.push(`Mechanical Laboratory Tests for ${dateLabel}`);
+      lines.push("");
+
+      let counter = 1;
+      daySessions.forEach((s) => {
+        const machineHeader = [s.machine_name_or_code, s.machine]
+          .filter(Boolean)
+          .join(" ");
+
+        const engineers = s.amats_session_assignments
+          .filter((a) => a.assignment_type === "test_engineer" && a.staff)
+          .map((a) => a.staff!.initials)
+          .join(", ");
+        const technicians = s.amats_session_assignments
+          .filter((a) => a.assignment_type === "test_technician" && a.staff)
+          .map((a) => a.staff!.initials)
+          .join(", ");
+
+        const testNames = s.amats_session_tests.map((t) => t.test_name).join(", ");
+
+        lines.push(`${counter}. ${machineHeader}`);
+        lines.push(testNames || "(no tests listed)");
+        lines.push(`Time: ${new Date(s.date_from).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", hour12: true })} - ${new Date(s.date_to).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", hour12: true })}`);
+        lines.push(`Engineer/s: ${engineers || "—"}`);
+        lines.push(`Technician/s – ${technicians || "—"}`);
+        lines.push("");
+        counter++;
+      });
+
+      sections.push(lines.join("\n"));
+    });
+
+    return sections.join("\n");
+  }
+
+  async function handleCopyAll() {
+    try {
+      await navigator.clipboard.writeText(buildAllCopyText());
+      setCopiedAll(true);
+      setTimeout(() => setCopiedAll(false), 2500);
+    } catch {
+      alert("Could not copy. Please try manually.");
+    }
+  }
+
   return (
     <AppLayout>
       <div className="max-w-6xl mx-auto px-4 py-8">
@@ -90,6 +156,34 @@ export default function AMaTSSessionsPage() {
               className="px-4 py-2 text-sm font-medium text-white bg-red-700 rounded-lg hover:bg-red-800 transition-colors"
             >
               + New Session
+            </button>
+          )}
+          {/* Copy All Sessions for Messenger */}
+          {filtered.length > 0 && (
+            <button
+              onClick={handleCopyAll}
+              className="flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-lg border transition-all"
+              style={{
+                borderColor: copiedAll ? '#16a34a' : '#6B7280',
+                color: copiedAll ? '#16a34a' : '#374151',
+                background: copiedAll ? '#f0fdf4' : 'white',
+              }}
+            >
+              {copiedAll ? (
+                <>
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                  </svg>
+                  Copied!
+                </>
+              ) : (
+                <>
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                  </svg>
+                  Copy All for Chat
+                </>
+              )}
             </button>
           )}
         </div>

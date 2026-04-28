@@ -41,6 +41,20 @@ type Dispatch = {
   dispatch_machines: Machine[];
 };
 
+
+type AmatsSession = {
+  id: string;
+  session_number: string;
+  machine: string;
+  machine_name_or_code: string | null;
+  date_from: string;
+  date_to: string;
+  status: string;
+  amats_session_tests: { id: string; test_name: string }[];
+  amats_session_assignments: { id: string; assignment_type: string; staff: { id: string; full_name: string; initials: string } | null }[];
+  _type?: 'amats';
+};
+
 const DAYS = ["SUN", "MON", "TUE", "WED", "THU", "FRI", "SAT"];
 const MONTHS = ["January","February","March","April","May","June",
   "July","August","September","October","November","December"];
@@ -96,6 +110,8 @@ export default function DashboardPage() {
   const [email, setEmail] = useState("");
   const [role, setRole] = useState("");
   const [dispatches, setDispatches] = useState<Dispatch[]>([]);
+  const [amatsSessions, setAmatsSessions] = useState<AmatsSession[]>([]);
+  const [filterSource, setFilterSource] = useState<'all'|'dispatch'|'amats'>('all');
   const [loading, setLoading] = useState(true);
   const [current, setCurrent] = useState(() => new Date());
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
@@ -118,11 +134,14 @@ export default function DashboardPage() {
       const { data: session } = await supabase.auth.getSession();
       const token = session.session?.access_token;
       if (token) {
-        const res = await fetch("/api/dispatches", {
-          headers: { Authorization: `Bearer ${token}` },
-        });
+        const [res, amatsRes] = await Promise.all([
+          fetch("/api/dispatches", { headers: { Authorization: `Bearer ${token}` } }),
+          fetch("/api/public/amats-sessions"),
+        ]);
         const json = await res.json();
+        const amatsJson = await amatsRes.json();
         setDispatches(json.dispatches ?? []);
+        setAmatsSessions(amatsJson.sessions ?? []);
         if (json.noAssignments) setNoAssignments(true);
       }
       setLoading(false);
@@ -130,22 +149,40 @@ export default function DashboardPage() {
     load();
   }, [router, supabase]);
 
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const dispatchMap = useMemo(() => {
-    const map: Record<string, Dispatch[]> = {};
-    for (const d of dispatches) {
-      if (!d.date_from || !d.date_to) continue;
-      const from = parseLocalDate(d.date_from);
-      const to = parseLocalDate(d.date_to);
-      const cur = new Date(from);
-      while (cur <= to) {
-        const key = toKey(cur);
-        if (!map[key]) map[key] = [];
-        map[key].push(d);
-        cur.setDate(cur.getDate() + 1);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const map: Record<string, any[]> = {};
+    if (filterSource !== 'amats') {
+      for (const d of dispatches) {
+        if (!d.date_from || !d.date_to) continue;
+        const from = parseLocalDate(d.date_from);
+        const to = parseLocalDate(d.date_to);
+        const cur = new Date(from);
+        while (cur <= to) {
+          const key = toKey(cur);
+          if (!map[key]) map[key] = [];
+          map[key].push({ ...d, _type: 'dispatch' });
+          cur.setDate(cur.getDate() + 1);
+        }
+      }
+    }
+    if (filterSource !== 'dispatch') {
+      for (const s of amatsSessions) {
+        if (!s.date_from || !s.date_to) continue;
+        const from = parseLocalDate(s.date_from.slice(0,10));
+        const to = parseLocalDate(s.date_to.slice(0,10));
+        const cur = new Date(from);
+        while (cur <= to) {
+          const key = toKey(cur);
+          if (!map[key]) map[key] = [];
+          map[key].push({ ...s, _type: 'amats' });
+          cur.setDate(cur.getDate() + 1);
+        }
       }
     }
     return map;
-  }, [dispatches]);
+  }, [dispatches, amatsSessions, filterSource]);
 
   // Filter dispatches for the current month (for the table)
   const monthDispatches = useMemo(() => {
@@ -248,6 +285,16 @@ export default function DashboardPage() {
                   className="w-8 h-8 flex items-center justify-center rounded-lg border border-gray-200 hover:bg-gray-50 text-gray-600 font-bold transition-all">›</button>
               </div>
             </div>
+            {/* Source filter */}
+            <div className="flex items-center gap-1.5 px-5 pb-3">
+              {([['all','All'],['dispatch','Dispatches'],['amats','AMaTS']] as const).map(([v,l]) => (
+                <button key={v} onClick={()=>setFilterSource(v)}
+                  className="px-3 py-1 rounded-full text-xs font-semibold border transition-all"
+                  style={{ background: filterSource===v?theme.primary:'white', color: filterSource===v?'white':'#6B7280', borderColor: filterSource===v?theme.primary:'#E5E7EB' }}>
+                  {v==='amats'?'🧪 ':''}{l}
+                </button>
+              ))}
+            </div>
 
             {/* Day headers */}
             <div className="grid grid-cols-7 border-b border-gray-200">
@@ -294,13 +341,13 @@ export default function DashboardPage() {
                       const st = getStatusStyle(d.status);
                       return (
                         <div key={d.id}
-                          onClick={e => { e.stopPropagation(); router.push(`/dispatches/${d.id}`); }}
+                          onClick={e => { e.stopPropagation(); router.push(d._type==='amats'?`/amats/${d.id}`:`/dispatches/${d.id}`); }}
                           className="flex items-center gap-1 text-xs rounded-md px-1.5 py-0.5 truncate mb-0.5 cursor-pointer hover:opacity-80 transition-opacity"
-                          style={{ background: st.bg, color: st.color, borderLeft: `3px solid ${d.created_by_role === "AMaTS" ? "#7B1F2F" : "#1B2A6B"}` }}
-                          title={`${d.dispatch_number ?? d.company_name ?? "Dispatch"} — ${d.created_by_role === "AMaTS" ? "AMaTS" : "Scheduler"}`}>
-                          <span className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ background: st.dot }} />
+                          style={{ background: d._type==='amats'?'rgba(13,148,136,0.15)':st.bg, color: d._type==='amats'?'#0D9488':st.color, borderLeft: `3px solid ${d._type==='amats'?'#0D9488':'#1B2A6B'}` }}
+                          title={d._type==='amats'?(d.session_number??'AMaTS'):(d.dispatch_number??d.company_name??'Dispatch')}>
+                          <span className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ background: d._type==='amats'?'#0D9488':st.dot }} />
                           <span className="truncate font-medium">
-                            {d.company_name ?? d.dispatch_number ?? "Dispatch"}
+                            {d._type==='amats'?('🧪 '+(d.session_number??'AMaTS')):(d.company_name??d.dispatch_number??'Dispatch')}
                           </span>
                         </div>
                       );
@@ -351,12 +398,12 @@ export default function DashboardPage() {
                     {selectedDispatches.map(d => {
                       const st = getStatusStyle(d.status);
                       return (
-                        <div key={d.id} onClick={() => router.push(`/dispatches/${d.id}`)}
+                        <div key={d.id} onClick={() => router.push(d._type==='amats'?`/amats/${d.id}`:`/dispatches/${d.id}`)}
                           className="p-3 rounded-lg border border-gray-100 hover:border-amber-300 hover:bg-amber-50/50 cursor-pointer transition-all">
-                          <p className="text-xs font-mono font-bold" style={{ color: theme.primary }}>
-                            {d.dispatch_number ?? "No Number"}
+                          <p className="text-xs font-mono font-bold" style={{ color: d._type==='amats'?'#0D9488':theme.primary }}>
+                            {d._type==='amats'?('🧪 '+(d.session_number??'AMaTS')):(d.dispatch_number??'No Number')}
                           </p>
-                          <p className="text-xs text-gray-600 mt-0.5 font-medium">{d.company_name ?? "—"}</p>
+                          <p className="text-xs text-gray-600 mt-0.5 font-medium">{d._type==='amats'?(d.machine_name_or_code??d.machine):(d.company_name??'—')}</p>
                           <div className="flex items-center gap-2 mt-1.5">
                             <span className="px-2 py-0.5 rounded-full text-xs font-bold" style={{ background: st.bg, color: st.color }}>
                               {d.status}

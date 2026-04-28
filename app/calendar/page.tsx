@@ -14,6 +14,20 @@ type Dispatch = {
   transport_mode: string | null;
 };
 
+
+type AmatsSession = {
+  id: string;
+  session_number: string;
+  machine: string;
+  machine_name_or_code: string | null;
+  date_from: string;
+  date_to: string;
+  status: string;
+  amats_session_tests: { id: string; test_name: string }[];
+  amats_session_assignments: { id: string; assignment_type: string; staff: { id: string; full_name: string; initials: string } | null }[];
+  _type?: 'amats';
+};
+
 const DAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 const MONTHS = ["January","February","March","April","May","June",
   "July","August","September","October","November","December"];
@@ -33,6 +47,8 @@ export default function CalendarPage() {
 
   const [loading, setLoading] = useState(true);
   const [dispatches, setDispatches] = useState<Dispatch[]>([]);
+  const [amatsSessions, setAmatsSessions] = useState<AmatsSession[]>([]);
+  const [filterSource, setFilterSource] = useState<'all'|'dispatch'|'amats'>('all');
   const [view, setView] = useState<"month" | "week">("month");
   const [current, setCurrent] = useState(() => new Date());
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
@@ -56,33 +72,54 @@ export default function CalendarPage() {
       const token = session.session?.access_token;
       if (!token) { router.push("/login"); return; }
 
-      const res = await fetch("/api/dispatches", {
-        headers: { Authorization: `Bearer ${token}` },
-      });
+      const [res, amatsRes] = await Promise.all([
+        fetch("/api/dispatches", { headers: { Authorization: `Bearer ${token}` } }),
+        fetch("/api/public/amats-sessions"),
+      ]);
       const json = await res.json();
+      const amatsJson = await amatsRes.json();
       setDispatches(json.dispatches ?? []);
+      setAmatsSessions(amatsJson.sessions ?? []);
       if (json.noAssignments) setNoAssignments(true);
       setLoading(false);
     }
     load();
   }, [router, supabase]);
 
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const dispatchMap = useMemo(() => {
-    const map: Record<string, Dispatch[]> = {};
-    for (const d of dispatches) {
-      if (!d.date_from || !d.date_to) continue;
-      const from = parseLocalDate(d.date_from);
-      const to = parseLocalDate(d.date_to);
-      const cur = new Date(from);
-      while (cur <= to) {
-        const key = toKey(cur);
-        if (!map[key]) map[key] = [];
-        map[key].push(d);
-        cur.setDate(cur.getDate() + 1);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const map: Record<string, any[]> = {};
+    if (filterSource !== 'amats') {
+      for (const d of dispatches) {
+        if (!d.date_from || !d.date_to) continue;
+        const from = parseLocalDate(d.date_from);
+        const to = parseLocalDate(d.date_to);
+        const cur = new Date(from);
+        while (cur <= to) {
+          const key = toKey(cur);
+          if (!map[key]) map[key] = [];
+          map[key].push({ ...d, _type: 'dispatch' });
+          cur.setDate(cur.getDate() + 1);
+        }
+      }
+    }
+    if (filterSource !== 'dispatch') {
+      for (const s of amatsSessions) {
+        if (!s.date_from || !s.date_to) continue;
+        const from = parseLocalDate(s.date_from.slice(0,10));
+        const to = parseLocalDate(s.date_to.slice(0,10));
+        const cur = new Date(from);
+        while (cur <= to) {
+          const key = toKey(cur);
+          if (!map[key]) map[key] = [];
+          map[key].push({ ...s, _type: 'amats' });
+          cur.setDate(cur.getDate() + 1);
+        }
       }
     }
     return map;
-  }, [dispatches]);
+  }, [dispatches, amatsSessions, filterSource]);
 
   function getMonthDays() {
     const year = current.getFullYear();
@@ -140,7 +177,7 @@ export default function CalendarPage() {
               Schedule
             </p>
             <h1 className="text-2xl font-black text-gray-900">Calendar</h1>
-            <p className="text-sm text-gray-500 mt-0.5">{dispatches.length} dispatches loaded</p>
+            <p className="text-sm text-gray-500 mt-0.5">{dispatches.length} dispatches · {amatsSessions.length} AMaTS sessions</p>
           </div>
           {(role === "admin_scheduler" || role === "AMaTS") && (
             <Link href="/dispatch/new"
@@ -175,6 +212,15 @@ export default function CalendarPage() {
                 <button onClick={() => navigate(1)}
                   className="w-7 h-7 flex items-center justify-center rounded-lg text-gray-500 hover:bg-gray-100 text-sm">›</button>
                 <span className="text-sm font-bold text-gray-800 ml-1 whitespace-nowrap">{headerLabel}</span>
+              </div>
+              <div className="flex items-center gap-1 bg-gray-100 rounded-full p-0.5">
+                {([['all','All'],['dispatch','Dispatches'],['amats','AMaTS']] as const).map(([v,l]) => (
+                  <button key={v} onClick={()=>setFilterSource(v)}
+                    className="px-3 py-1 rounded-full text-xs font-semibold transition-all"
+                    style={{ background: filterSource===v?'#1B2A6B':'transparent', color: filterSource===v?'white':'#6B7280' }}>
+                    {v==='amats'?'🧪 ':''}{l}
+                  </button>
+                ))}
               </div>
               <div className="flex rounded-lg overflow-hidden border border-gray-200 self-start sm:self-auto">
                 <button onClick={() => setView("month")}
@@ -219,11 +265,11 @@ export default function CalendarPage() {
                       </div>
                       {chips.slice(0, 2).map(d => (
                         <div key={d.id}
-                          onClick={e => { e.stopPropagation(); router.push(`/dispatches/${d.id}`); }}
+                          onClick={e => { e.stopPropagation(); router.push(d._type==='amats'?`/amats/${d.id}`:`/dispatches/${d.id}`); }}
                           className="text-xs rounded px-1.5 py-0.5 truncate mb-0.5 cursor-pointer hover:opacity-80"
-                          style={{ background: "rgba(27,42,107,0.1)", color: "#1B2A6B" }}
-                          title={d.dispatch_number ?? d.company_name ?? "Dispatch"}>
-                          {d.dispatch_number ?? d.company_name ?? "Dispatch"}
+                          style={{ background: d._type==='amats'?'rgba(13,148,136,0.15)':'rgba(27,42,107,0.1)', color: d._type==='amats'?'#0D9488':'#1B2A6B' }}
+                          title={d._type==='amats'?(d.session_number??'AMaTS'):(d.dispatch_number??d.company_name??'Dispatch')}>
+                          {d._type==='amats'?('🧪 '+(d.session_number??'AMaTS')):(d.dispatch_number??d.company_name??'Dispatch')}
                         </div>
                       ))}
                       {chips.length > 2 && (
@@ -257,9 +303,9 @@ export default function CalendarPage() {
                           <div key={d.id}
                             onClick={e => { e.stopPropagation(); router.push(`/dispatches/${d.id}`); }}
                             className="text-xs rounded px-1.5 py-1 truncate cursor-pointer hover:opacity-80"
-                            style={{ background: "rgba(27,42,107,0.1)", color: "#1B2A6B" }}
-                            title={d.dispatch_number ?? d.company_name ?? "Dispatch"}>
-                            {d.dispatch_number ?? d.company_name ?? "Dispatch"}
+                            style={{ background: d._type==='amats'?'rgba(13,148,136,0.15)':'rgba(27,42,107,0.1)', color: d._type==='amats'?'#0D9488':'#1B2A6B' }}
+                            title={d._type==='amats'?(d.session_number??'AMaTS'):(d.dispatch_number??d.company_name??'Dispatch')}>
+                            {d._type==='amats'?('🧪 '+(d.session_number??'AMaTS')):(d.dispatch_number??d.company_name??'Dispatch')}
                           </div>
                         ))}
                       </div>
@@ -285,19 +331,19 @@ export default function CalendarPage() {
               </div>
               <div className="p-4">
                 {!selectedDate ? (
-                  <p className="text-xs text-gray-400 italic">Click a date to see dispatches.</p>
+                  <p className="text-xs text-gray-400 italic">Click a date to see events.</p>
                 ) : selectedDispatches.length === 0 ? (
-                  <p className="text-xs text-gray-400 italic">No dispatches on this date.</p>
+                  <p className="text-xs text-gray-400 italic">No events on this date.</p>
                 ) : (
                   <div className="space-y-2">
                     {selectedDispatches.map(d => (
                       <div key={d.id}
-                        onClick={() => router.push(`/dispatches/${d.id}`)}
+                        onClick={() => router.push(d._type==='amats'?`/amats/${d.id}`:`/dispatches/${d.id}`)}
                         className="p-3 rounded-lg border border-gray-100 hover:border-amber-300 hover:bg-amber-50 cursor-pointer transition-colors">
-                        <p className="text-xs font-bold" style={{ color: "#1B2A6B" }}>
-                          {d.dispatch_number ?? "No Number"}
+                        <p className="text-xs font-bold" style={{ color: d._type==='amats'?'#0D9488':'#1B2A6B' }}>
+                          {d._type==='amats'?('🧪 '+(d.session_number??'AMaTS')):(d.dispatch_number??'No Number')}
                         </p>
-                        <p className="text-xs text-gray-500 mt-0.5">{d.company_name ?? "—"}</p>
+                        <p className="text-xs text-gray-500 mt-0.5">{d._type==='amats'?(d.machine_name_or_code??d.machine):(d.company_name??'—')}</p>
                         <p className="text-xs text-gray-400 mt-0.5">{d.date_from} → {d.date_to}</p>
                       </div>
                     ))}

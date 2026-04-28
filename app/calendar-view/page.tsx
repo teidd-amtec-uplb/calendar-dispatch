@@ -38,6 +38,20 @@ type Dispatch = {
   dispatch_machines: Machine[];
 };
 
+
+type AmatsSession = {
+  id: string;
+  session_number: string;
+  machine: string;
+  machine_name_or_code: string | null;
+  date_from: string;
+  date_to: string;
+  status: string;
+  amats_session_tests: { id: string; test_name: string }[];
+  amats_session_assignments: { id: string; assignment_type: string; staff: { id: string; full_name: string; initials: string } | null }[];
+  _type?: 'amats';
+};
+
 // ─── Status styles ───────────────────────────────────────────────────────────
 const STATUS_COLORS: Record<string, { bg: string; dot: string; text: string; badge: string; badgeText: string }> = {
   Pending:        { bg: "#FFFBEB", dot: "#F59E0B", text: "#92400E", badge: "#FEF3C7", badgeText: "#92400E" },
@@ -91,28 +105,48 @@ export default function CalendarViewPage() {
   const [selectedDay, setSelectedDay] = useState<string | null>(null);
   const [selectedDispatch, setSelectedDispatch] = useState<Dispatch | null>(null);
   const [filterStatus, setFilterStatus] = useState<string>("All");
+  const [filterSource, setFilterSource] = useState<'all'|'dispatch'|'amats'>('all');
+  const [amatsSessions, setAmatsSessions] = useState<AmatsSession[]>([]);
 
   // Build map: { "YYYY-MM-DD": Dispatch[] }
-  const dispatchMap = useCallback((): Record<string, Dispatch[]> => {
-    const map: Record<string, Dispatch[]> = {};
-    const filtered = filterStatus === "All"
-      ? dispatches
-      : dispatches.filter(d => d.status === filterStatus);
-    for (const d of filtered) {
-      if (!d.date_from || !d.date_to) continue;
-      for (const key of getDateRange(d.date_from, d.date_to)) {
-        if (!map[key]) map[key] = [];
-        map[key].push(d);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const dispatchMap = useCallback((): Record<string, any[]> => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const map: Record<string, any[]> = {};
+    if (filterSource !== 'amats') {
+      const filtered = filterStatus === 'All' ? dispatches : dispatches.filter(d => d.status === filterStatus);
+      for (const d of filtered) {
+        if (!d.date_from || !d.date_to) continue;
+        for (const key of getDateRange(d.date_from, d.date_to)) {
+          if (!map[key]) map[key] = [];
+          map[key].push({ ...d, _type: 'dispatch' });
+        }
+      }
+    }
+    if (filterSource !== 'dispatch') {
+      const filtered = filterStatus === 'All' ? amatsSessions : amatsSessions.filter(s => s.status === filterStatus);
+      for (const s of filtered) {
+        if (!s.date_from || !s.date_to) continue;
+        const from = s.date_from.slice(0, 10);
+        const to = s.date_to.slice(0, 10);
+        for (const key of getDateRange(from, to)) {
+          if (!map[key]) map[key] = [];
+          map[key].push({ ...s, _type: 'amats' });
+        }
       }
     }
     return map;
-  }, [dispatches, filterStatus]);
+  }, [dispatches, amatsSessions, filterStatus, filterSource]);
 
   useEffect(() => {
-    fetch("/api/public/dispatches")
-      .then(r => r.json())
-      .then(data => { setDispatches(data.dispatches ?? []); setLoading(false); })
-      .catch(() => setLoading(false));
+    Promise.all([
+      fetch('/api/public/dispatches').then(r => r.json()),
+      fetch('/api/public/amats-sessions').then(r => r.json()),
+    ]).then(([dd, sa]) => {
+      setDispatches(dd.dispatches ?? []);
+      setAmatsSessions(sa.sessions ?? []);
+      setLoading(false);
+    }).catch(() => setLoading(false));
   }, []);
 
   // Calendar grid
@@ -167,6 +201,15 @@ export default function CalendarViewPage() {
               </button>
             ))}
           </div>
+          <div className="flex items-center gap-1 bg-white/10 rounded-full p-0.5">
+            {([['all','All'],['dispatch','Dispatches'],['amats','AMaTS']] as const).map(([v,l]) => (
+              <button key={v} onClick={()=>setFilterSource(v)}
+                className="px-3 py-1 rounded-full text-xs font-semibold transition-all"
+                style={{ background: filterSource===v ? 'white' : 'transparent', color: filterSource===v ? '#0F1A4A' : 'rgba(255,255,255,0.7)' }}>
+                {v==='amats' ? '🧪 ' : ''}{l}
+              </button>
+            ))}
+          </div>
           <a href="/workload-view"
             className="px-3 py-1.5 rounded-lg text-xs font-semibold text-white border border-white/20 hover:bg-white/10 transition-all">
             📊 Workload
@@ -189,7 +232,7 @@ export default function CalendarViewPage() {
                 {MONTHS[month]} {year}
               </h1>
               <p className="text-xs text-gray-400 mt-0.5">
-                {dispatches.length} total dispatch{dispatches.length !== 1 ? "es" : ""}
+                {dispatches.length} dispatch{dispatches.length !== 1 ? 'es' : ''} · {amatsSessions.length} AMaTS
                 {filterStatus !== "All" && ` · ${filterStatus}`}
               </p>
             </div>
@@ -271,12 +314,13 @@ export default function CalendarViewPage() {
                           <div key={d.id}
                             onClick={e => { e.stopPropagation(); setSelectedDay(key); setSelectedDispatch(d); }}
                             className="flex items-center gap-1 px-1.5 py-0.5 rounded-md cursor-pointer hover:opacity-80 transition-opacity"
-                            style={{ background: colors.badge, borderLeft: `3px solid ${d.created_by_role === "AMaTS" ? "#7B1F2F" : "#1B2A6B"}` }}>
+                            style={{ background: d._type==='amats'?'rgba(13,148,136,0.15)':colors.badge, borderLeft: `3px solid ${d._type==='amats'?'#0D9488':'#1B2A6B'}` }}>
+
                             <span className="w-1.5 h-1.5 rounded-full flex-shrink-0"
                               style={{ background: colors.dot }} />
                             <span className="text-xs font-medium truncate"
                               style={{ color: colors.text, maxWidth: "100%" }}>
-                              {d.company_name ?? d.dispatch_number ?? "Dispatch"}
+                              {d._type==='amats'?('🧪 '+(d.session_number??d.machine??'AMaTS')):(d.company_name??d.dispatch_number??'Dispatch')}
                             </span>
                           </div>
                         );
@@ -299,6 +343,10 @@ export default function CalendarViewPage() {
                 <span className="text-xs text-gray-500">{status}</span>
               </div>
             ))}
+            <div className="flex items-center gap-1.5">
+              <span className="w-2 h-2 rounded-full" style={{ background: '#0D9488' }} />
+              <span className="text-xs text-gray-500">🧪 AMaTS Session</span>
+            </div>
           </div>
         </div>
 
@@ -431,9 +479,9 @@ export default function CalendarViewPage() {
             // ── Day dispatches list ──────────────────────────────────────────
             <div className="flex flex-col h-full">
               <div className="px-5 py-4 border-b border-gray-100" style={{ background: "#F8F9FB" }}>
-                <p className="text-xs text-gray-400 font-semibold uppercase tracking-widest">Dispatches on</p>
+                <p className="text-xs text-gray-400 font-semibold uppercase tracking-widest">Schedule on</p>
                 <h2 className="text-base font-black text-gray-900 mt-0.5">{selectedDay}</h2>
-                <p className="text-xs text-gray-400 mt-0.5">{dayDispatches.length} dispatch{dayDispatches.length !== 1 ? "es" : ""}</p>
+                <p className="text-xs text-gray-400 mt-0.5">{dayDispatches.length} item{dayDispatches.length!==1?'s':''}</p>
               </div>
 
               <div className="flex-1 overflow-y-auto px-4 py-4">
@@ -449,18 +497,18 @@ export default function CalendarViewPage() {
                   <div className="space-y-3">
                     {dayDispatches.map(d => {
                       const colors = STATUS_COLORS[d.status] ?? STATUS_COLORS.Pending;
-                      const engineers = d.dispatch_assignments.filter(a => ["engineer", "lead_engineer", "assistant_engineer"].includes(a.assignment_type));
-                      const technicians = d.dispatch_assignments.filter(a => a.assignment_type === "technician");
+                      const engineers = d._type==='amats' ? [] : (d.dispatch_assignments||[]).filter((a: {assignment_type:string}) => ["engineer", "lead_engineer", "assistant_engineer"].includes(a.assignment_type));
+                      const technicians = d._type==='amats' ? [] : (d.dispatch_assignments||[]).filter((a: {assignment_type:string}) => a.assignment_type === "technician");
                       return (
                         <div key={d.id}
-                          onClick={() => setSelectedDispatch(d)}
+                          onClick={() => d._type==='amats'?(window.location.href='/amats/'+d.id):setSelectedDispatch(d)}
                           className="rounded-xl border p-4 cursor-pointer hover:shadow-md transition-all"
                           style={{ borderColor: colors.dot + "40", background: colors.bg }}>
                           <div className="flex items-start justify-between gap-2">
                             <div className="flex-1 min-w-0">
                               <p className="text-xs font-mono text-gray-400">{d.dispatch_number ?? "—"}</p>
                               <p className="text-sm font-bold text-gray-900 truncate mt-0.5">
-                                {d.company_name ?? "Untitled"}
+                                {d._type==='amats'?('🧪 '+(d.machine_name_or_code??d.machine??'AMaTS Session')):(d.company_name??'Untitled')}
                               </p>
                             </div>
                             <span className="px-2 py-0.5 rounded-full text-xs font-bold flex-shrink-0"
@@ -469,18 +517,19 @@ export default function CalendarViewPage() {
                             </span>
                           </div>
                           <div className="mt-2 flex items-center gap-3 text-xs text-gray-500">
-                            <span>📍 {d.type === "in_house" ? "AMTEC" : (d.testing_location ?? d.location ?? "—")}</span>
+                            {d._type!=='amats'&&<span>📍 {d.type === 'in_house' ? 'AMTEC' : (d.testing_location ?? d.location ?? '—')}</span>}
+                            {d._type==='amats'&&<span>🧪 {(d.amats_session_tests||[]).slice(0,2).map((t: {test_name:string})=>t.test_name).join(', ')||'AMaTS Testing'}</span>}
                           </div>
                           {(engineers.length > 0 || technicians.length > 0) && (
                             <div className="mt-2 flex flex-wrap gap-1">
-                              {engineers.map(a => (
+                              {(engineers as {id:string; staff?: {full_name?:string}}[]).map(a => (
                                 <span key={a.id}
                                   className="px-2 py-0.5 rounded-full text-xs font-medium"
                                   style={{ background: "#EEF1FB", color: "#1B2A6B" }}>
                                   {a.staff?.full_name?.split(" ")[0] ?? "Eng"}
                                 </span>
                               ))}
-                              {technicians.map(a => (
+                              {(technicians as {id:string; staff?: {full_name?:string}}[]).map(a => (
                                 <span key={a.id}
                                   className="px-2 py-0.5 rounded-full text-xs font-medium"
                                   style={{ background: "#ECFDF5", color: "#065F46" }}>
@@ -489,7 +538,7 @@ export default function CalendarViewPage() {
                               ))}
                             </div>
                           )}
-                          <p className="text-xs text-gray-400 mt-2 font-medium">Tap to see details →</p>
+                          <p className="text-xs text-gray-400 mt-2 font-medium">{d._type==='amats'?'View AMaTS Session →':'Tap to see details →'}</p>
                         </div>
                       );
                     })}

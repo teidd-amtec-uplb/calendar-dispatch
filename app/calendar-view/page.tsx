@@ -209,7 +209,7 @@ export default function CalendarViewPage() {
               <button key={v} onClick={()=>setFilterSource(v)}
                 className="px-3 py-1 rounded-full text-xs font-semibold transition-all"
                 style={{ background: filterSource===v ? 'white' : 'transparent', color: filterSource===v ? '#0F1A4A' : 'rgba(255,255,255,0.7)' }}>
-                {v==='amats' ? '🧪 ' : ''}{l}
+                {v==='amats' ? '🧪 ' : v==='dispatch' ? '📍 ' : ''}{l}
               </button>
             ))}
           </div>
@@ -323,7 +323,7 @@ export default function CalendarViewPage() {
                               style={{ background: colors.dot }} />
                             <span className="text-xs font-medium truncate"
                               style={{ color: colors.text, maxWidth: "100%" }}>
-                              {d._type==='amats'?('🧪 '+(d.session_number??d.machine??'AMaTS')):(d.company_name??d.dispatch_number??'Dispatch')}
+                              {d._type==='amats'?('🧪 '+(d.session_number??d.machine??'AMaTS')):('📍 '+(d.company_name??d.dispatch_number??'Dispatch'))}
                             </span>
                           </div>
                         );
@@ -629,7 +629,7 @@ export default function CalendarViewPage() {
                             <div className="flex-1 min-w-0">
                               <p className="text-xs font-mono text-gray-400">{d.dispatch_number ?? "—"}</p>
                               <p className="text-sm font-bold text-gray-900 truncate mt-0.5">
-                                {d._type==='amats'?('🧪 '+(d.machine_name_or_code??d.machine??'AMaTS Session')):(d.company_name??'Untitled')}
+                                {d._type==='amats'?('🧪 '+(d.machine_name_or_code??d.machine??'AMaTS Session')):('📍 '+(d.company_name??'Untitled'))}
                               </p>
                             </div>
                             <span className="px-2 py-0.5 rounded-full text-xs font-bold flex-shrink-0"

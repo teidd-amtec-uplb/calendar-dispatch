@@ -293,7 +293,7 @@ export default function DashboardPage() {
                 <button key={v} onClick={()=>setFilterSource(v)}
                   className="px-3 py-1 rounded-full text-xs font-semibold border transition-all"
                   style={{ background: filterSource===v?theme.primary:'white', color: filterSource===v?'white':'#6B7280', borderColor: filterSource===v?theme.primary:'#E5E7EB' }}>
-                  {v==='amats'?'🧪 ':''}{l}
+                  {v==='amats'?'🧪 ':v==='dispatch'?'📍 ':''}{l}
                 </button>
               ))}
             </div>
@@ -349,7 +349,7 @@ export default function DashboardPage() {
                           title={d._type==='amats'?(d.session_number??'AMaTS'):(d.dispatch_number??d.company_name??'Dispatch')}>
                           <span className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ background: d._type==='amats'?'#0D9488':st.dot }} />
                           <span className="truncate font-medium">
-                            {d._type==='amats'?('🧪 '+(d.session_number??'AMaTS')):(d.company_name??d.dispatch_number??'Dispatch')}
+                            {d._type==='amats'?('🧪 '+(d.session_number??'AMaTS')):('📍 '+(d.company_name??d.dispatch_number??'Dispatch'))}
                           </span>
                         </div>
                       );
@@ -403,7 +403,7 @@ export default function DashboardPage() {
                         <div key={d.id} onClick={() => router.push(d._type==='amats'?`/amats/${d.id}`:`/dispatches/${d.id}`)}
                           className="p-3 rounded-lg border border-gray-100 hover:border-amber-300 hover:bg-amber-50/50 cursor-pointer transition-all">
                           <p className="text-xs font-mono font-bold" style={{ color: d._type==='amats'?'#0D9488':theme.primary }}>
-                            {d._type==='amats'?('🧪 '+(d.session_number??'AMaTS')):(d.dispatch_number??'No Number')}
+                            {d._type==='amats'?('🧪 '+(d.session_number??'AMaTS')):('📍 '+(d.dispatch_number??'No Number'))}
                           </p>
                           <p className="text-xs text-gray-600 mt-0.5 font-medium">{d._type==='amats'?(d.machine_name_or_code??d.machine):(d.company_name??'—')}</p>
                           <div className="flex items-center gap-2 mt-1.5">

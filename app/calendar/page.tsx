@@ -218,7 +218,7 @@ export default function CalendarPage() {
                   <button key={v} onClick={()=>setFilterSource(v)}
                     className="px-3 py-1 rounded-full text-xs font-semibold transition-all"
                     style={{ background: filterSource===v?'#1B2A6B':'transparent', color: filterSource===v?'white':'#6B7280' }}>
-                    {v==='amats'?'🧪 ':''}{l}
+                    {v==='amats'?'🧪 ':v==='dispatch'?'📍 ':''}{l}
                   </button>
                 ))}
               </div>
@@ -269,7 +269,7 @@ export default function CalendarPage() {
                           className="text-xs rounded px-1.5 py-0.5 truncate mb-0.5 cursor-pointer hover:opacity-80"
                           style={{ background: d._type==='amats'?'rgba(13,148,136,0.15)':'rgba(27,42,107,0.1)', color: d._type==='amats'?'#0D9488':'#1B2A6B' }}
                           title={d._type==='amats'?(d.session_number??'AMaTS'):(d.dispatch_number??d.company_name??'Dispatch')}>
-                          {d._type==='amats'?('🧪 '+(d.session_number??'AMaTS')):(d.dispatch_number??d.company_name??'Dispatch')}
+                          {d._type==='amats'?('🧪 '+(d.session_number??'AMaTS')):('📍 '+(d.dispatch_number??d.company_name??'Dispatch'))}
                         </div>
                       ))}
                       {chips.length > 2 && (
@@ -305,7 +305,7 @@ export default function CalendarPage() {
                             className="text-xs rounded px-1.5 py-1 truncate cursor-pointer hover:opacity-80"
                             style={{ background: d._type==='amats'?'rgba(13,148,136,0.15)':'rgba(27,42,107,0.1)', color: d._type==='amats'?'#0D9488':'#1B2A6B' }}
                             title={d._type==='amats'?(d.session_number??'AMaTS'):(d.dispatch_number??d.company_name??'Dispatch')}>
-                            {d._type==='amats'?('🧪 '+(d.session_number??'AMaTS')):(d.dispatch_number??d.company_name??'Dispatch')}
+                            {d._type==='amats'?('🧪 '+(d.session_number??'AMaTS')):('📍 '+(d.dispatch_number??d.company_name??'Dispatch'))}
                           </div>
                         ))}
                       </div>
@@ -341,7 +341,7 @@ export default function CalendarPage() {
                         onClick={() => router.push(d._type==='amats'?`/amats/${d.id}`:`/dispatches/${d.id}`)}
                         className="p-3 rounded-lg border border-gray-100 hover:border-amber-300 hover:bg-amber-50 cursor-pointer transition-colors">
                         <p className="text-xs font-bold" style={{ color: d._type==='amats'?'#0D9488':'#1B2A6B' }}>
-                          {d._type==='amats'?('🧪 '+(d.session_number??'AMaTS')):(d.dispatch_number??'No Number')}
+                          {d._type==='amats'?('🧪 '+(d.session_number??'AMaTS')):('📍 '+(d.dispatch_number??'No Number'))}
                         </p>
                         <p className="text-xs text-gray-500 mt-0.5">{d._type==='amats'?(d.machine_name_or_code??d.machine):(d.company_name??'—')}</p>
                         <p className="text-xs text-gray-400 mt-0.5">{d.date_from} → {d.date_to}</p>

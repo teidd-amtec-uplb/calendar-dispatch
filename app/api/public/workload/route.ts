@@ -15,6 +15,10 @@ function computeLiveStatus(dateFrom: string | null, dateTo: string | null, store
   return "Ongoing";
 }
 
+function toDateOnly(value: string | null): string | null {
+  return value ? value.slice(0, 10) : null;
+}
+
 // Public endpoint — no auth required
 // Returns per-person workload + full dispatch list for the month
 export async function GET(req: Request) {
@@ -73,6 +77,30 @@ export async function GET(req: Request) {
 
   if (dispErr) return NextResponse.json({ error: dispErr.message }, { status: 500 });
 
+  // Get all AMaTS sessions overlapping this month with assigned staff.
+  const { data: amatsSessions, error: amatsErr } = await supabaseAdmin
+    .from("amats_sessions")
+    .select(`
+      id,
+      session_number,
+      machine,
+      machine_name_or_code,
+      date_from,
+      date_to,
+      status,
+      amats_session_assignments (
+        id,
+        staff_id,
+        assignment_type,
+        staff ( id, full_name, initials )
+      )
+    `)
+    .lte("date_from", to)
+    .gte("date_to", from)
+    .order("date_from", { ascending: true });
+
+  if (amatsErr) return NextResponse.json({ error: amatsErr.message }, { status: 500 });
+
   // Live-compute statuses
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const liveDispatches = (dispatches ?? []).map((d: any) => ({
@@ -80,11 +108,25 @@ export async function GET(req: Request) {
     status: computeLiveStatus(d.date_from, d.date_to, d.status),
   }));
 
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const liveAmatsSessions = (amatsSessions ?? []).map((s: any) => ({
+    ...s,
+    date_from: toDateOnly(s.date_from),
+    date_to: toDateOnly(s.date_to),
+    status: computeLiveStatus(toDateOnly(s.date_from), toDateOnly(s.date_to), s.status),
+  }));
+
   // Build workload per person
   const workload = (staffList ?? []).map((person) => {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const myDispatches = liveDispatches.filter((d: any) =>
       (d.dispatch_assignments as { staff_id: string | null }[])?.some(
+        (a) => a.staff_id === person.id
+      )
+    );
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const myAmatsSessions = liveAmatsSessions.filter((s: any) =>
+      (s.amats_session_assignments as { staff_id: string | null }[])?.some(
         (a) => a.staff_id === person.id
       )
     );
@@ -107,6 +149,7 @@ export async function GET(req: Request) {
     for (const d of myDispatches) {
       machineCount += ((d.dispatch_machines as unknown[]) ?? []).length;
     }
+    machineCount += myAmatsSessions.length;
 
     return {
       id: person.id,
@@ -121,9 +164,22 @@ export async function GET(req: Request) {
         id: d.id,
         dispatch_number: d.dispatch_number,
         company_name: d.company_name,
+        testing_location: d.testing_location,
+        location: d.location,
+        type: d.type,
         date_from: d.date_from,
         date_to: d.date_to,
         status: d.status,
+      })),
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      amats_sessions: myAmatsSessions.map((s: any) => ({
+        id: s.id,
+        session_number: s.session_number,
+        machine: s.machine,
+        machine_name_or_code: s.machine_name_or_code,
+        date_from: s.date_from,
+        date_to: s.date_to,
+        status: s.status,
       })),
     };
   });
@@ -147,5 +203,5 @@ export async function GET(req: Request) {
     dispatch_machines: d.dispatch_machines,
   }));
 
-  return NextResponse.json({ workload, dispatchList, year, month });
+  return NextResponse.json({ workload, dispatchList, amatsSessionList: liveAmatsSessions, year, month });
 }

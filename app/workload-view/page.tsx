@@ -21,6 +21,19 @@ type DispatchSummary = {
   id: string;
   dispatch_number: string | null;
   company_name: string | null;
+  testing_location?: string | null;
+  location?: string | null;
+  type?: string | null;
+  date_from: string | null;
+  date_to: string | null;
+  status: string;
+};
+
+type AmatsSummary = {
+  id: string;
+  session_number: string | null;
+  machine: string | null;
+  machine_name_or_code: string | null;
   date_from: string | null;
   date_to: string | null;
   status: string;
@@ -46,6 +59,7 @@ type StaffWorkload = {
   travel_days: number;
   machine_count: number;
   dispatches: DispatchSummary[];
+  amats_sessions: AmatsSummary[];
 };
 
 type CalendarEvent = {
@@ -85,6 +99,7 @@ const EVENT_TYPES: Record<string, { label: string; marker: string; bg: string; t
 
 // Legend for the calendar
 const LEGEND = [
+  { bg: "#7F1D1D",  text: "#FCD34D", marker: "●",   label: "Scheduled AMaTS session" },
   { bg: "#FCD34D",  text: "#78350F", marker: "S",   label: "Scheduled (with dispatch)" },
   { bg: "#10B981",  text: "#fff",    marker: "✓",   label: "Trip accomplished" },
   { bg: "#86EFAC",  text: "#14532D", marker: "S",   label: "S = Field Scheduler" },
@@ -111,22 +126,31 @@ function getDispatchCellStyle(status: string): { bg: string; text: string; marke
   }
 }
 
+function getAmatsCellStyle(status: string): { bg: string; text: string; marker: string } {
+  switch (status) {
+    case "Done":         return { bg: "#10B981", text: "#fff",    marker: "✓" };
+    case "Cancelled":    return { bg: "#C4B5FD", text: "#4C1D95", marker: "✕" };
+    case "Re-scheduled": return { bg: "#7F1D1D", text: "#FCD34D", marker: "R" };
+    default:             return { bg: "#7F1D1D", text: "#FCD34D", marker: "●" };
+  }
+}
+
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 function parseLocalDate(s: string) {
   const [y, m, d] = s.split("-").map(Number);
   return new Date(y, m - 1, d);
 }
 
-function buildDayMap(dispatches: DispatchSummary[], year: number, month: number): Record<number, DispatchSummary> {
-  const map: Record<number, DispatchSummary> = {};
+function buildDayMap<T extends { date_from: string | null; date_to: string | null }>(items: T[], year: number, month: number): Record<number, T> {
+  const map: Record<number, T> = {};
   const daysInMonth = new Date(year, month, 0).getDate();
-  for (const d of dispatches) {
-    if (!d.date_from || !d.date_to) continue;
-    const from = parseLocalDate(d.date_from);
-    const to = parseLocalDate(d.date_to);
+  for (const item of items) {
+    if (!item.date_from || !item.date_to) continue;
+    const from = parseLocalDate(item.date_from.slice(0, 10));
+    const to = parseLocalDate(item.date_to.slice(0, 10));
     for (let day = 1; day <= daysInMonth; day++) {
       const date = new Date(year, month - 1, day);
-      if (date >= from && date <= to) map[day] = d;
+      if (date >= from && date <= to) map[day] = item;
     }
   }
   return map;
@@ -136,8 +160,13 @@ function getDayKey(year: number, month: number, day: number): string {
   return `${year}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
 }
 
+function getDispatchLocation(dispatch: DispatchSummary): string {
+  if (dispatch.type === "in_house") return "AMTEC";
+  return dispatch.testing_location ?? dispatch.location ?? "No location";
+}
+
 // ─── Tooltip ─────────────────────────────────────────────────────────────────
-type TooltipInfo = { x: number; y: number; dispatch?: DispatchSummary; event?: CalendarEvent; personName: string };
+type TooltipInfo = { x: number; y: number; dispatch?: DispatchSummary; amats?: AmatsSummary; event?: CalendarEvent; personName: string };
 
 // ─── Event Edit Modal ────────────────────────────────────────────────────────
 function EventModal({ personName, dateKey, current, onSave, onDelete, onClose }: {
@@ -444,7 +473,11 @@ export default function WorkloadViewPage() {
   // Busy count per day
   const busyPerDay: Record<number, number> = {};
   for (const day of days) {
-    busyPerDay[day] = workload.filter(w => buildDayMap(w.dispatches, year, month)[day] !== undefined).length;
+    busyPerDay[day] = workload.filter(w => {
+      const hasDispatch = buildDayMap(w.dispatches, year, month)[day] !== undefined;
+      const hasAmats = buildDayMap(w.amats_sessions ?? [], year, month)[day] !== undefined;
+      return hasDispatch || hasAmats;
+    }).length;
   }
 
   return (
@@ -511,6 +544,8 @@ export default function WorkloadViewPage() {
             <div className="flex items-center gap-1.5 flex-wrap flex-1 justify-end transition-opacity duration-200"
               style={{ opacity: selectedCells.size > 0 && !applyingBulk ? 1 : 0.4, pointerEvents: selectedCells.size > 0 && !applyingBulk ? 'auto' : 'none' }}>
               {[
+                  { id: "field_scheduler", bg: "#86EFAC", icon: "S", label: "Scheduler" },
+                  { id: "amats_scheduler", bg: "#6EE7B7", icon: "M", label: "AMaTS" },
                   { id: "holiday", bg: "#FCA5A5", icon: "🎈", label: "Holiday" },
                   { id: "no_pasok", bg: "#C4B5FD", icon: "🛑", label: "Suspension" },
                   { id: "offset_leave", bg: "#4B5563", icon: "🌙", label: "Offset" },
@@ -521,7 +556,9 @@ export default function WorkloadViewPage() {
               ].map(t => (
                 <button key={t.id} onClick={() => applyActionToSelection(t.id)}
                   className="flex items-center gap-1.5 px-2 py-1.5 rounded border border-gray-300 bg-white hover:bg-gray-50 text-xs font-bold text-gray-700 shadow-sm hover:shadow transition-all">
-                  <span className="w-3 h-3 rounded-full inline-block" style={{ background: t.bg, border: t.border }} />
+                  <span className="w-4 h-4 rounded-full inline-flex items-center justify-center text-[0.55rem] font-black" style={{ background: t.bg, border: t.border }}>
+                    {t.icon}
+                  </span>
                   {t.label}
                 </button>
               ))}
@@ -775,22 +812,21 @@ export default function WorkloadViewPage() {
           <p className="text-xs font-bold text-gray-400">{tooltip.personName}</p>
           {tooltip.dispatch && (
             <>
-              <p className="text-xs font-mono text-gray-400 mt-0.5">{tooltip.dispatch.dispatch_number ?? "—"}</p>
               <p className="text-sm font-black text-gray-900 mt-0.5 leading-tight">
-                {tooltip.dispatch.company_name ?? "Untitled"}
+                {getDispatchLocation(tooltip.dispatch)}
               </p>
-              <div className="mt-1.5">
-                {(() => {
-                  const s = getDispatchCellStyle(tooltip.dispatch!.status);
-                  return (
-                    <span className="px-2 py-0.5 rounded-full text-xs font-bold" style={{ background: s.bg, color: s.text }}>
-                      {tooltip.dispatch!.status}
-                    </span>
-                  );
-                })()}
-              </div>
-              <p className="text-xs text-gray-400 mt-1.5">
-                {tooltip.dispatch.date_from} → {tooltip.dispatch.date_to}
+              <p className="text-xs text-gray-500 mt-1">
+                {tooltip.dispatch.company_name ?? "No applicant/client"}
+              </p>
+            </>
+          )}
+          {tooltip.amats && (
+            <>
+              <p className="text-sm font-black text-gray-900 mt-0.5 leading-tight">
+                {tooltip.amats.machine ?? "AMaTS Session"}
+              </p>
+              <p className="text-xs text-gray-500 mt-1">
+                {tooltip.amats.machine_name_or_code ?? "No brand/model"}
               </p>
             </>
           )}
@@ -830,6 +866,7 @@ function StaffRow({ person, days, year, month, r, idx, todayDay, onTooltip, even
   onPointerEnter: (c: number) => void;
 }) {
   const dayMap = buildDayMap(person.dispatches, year, month);
+  const amatsDayMap = buildDayMap(person.amats_sessions ?? [], year, month);
   const isEngineer = person.role === "engineer";
   const rowBg = idx % 2 === 0 ? "white" : "#FAFAFA";
 
@@ -868,6 +905,7 @@ function StaffRow({ person, days, year, month, r, idx, todayDay, onTooltip, even
       {/* Day cells */}
       {days.map((d, c) => {
         const dispatch = dayMap[d];
+        const amats = amatsDayMap[d];
         const dateKey = getDayKey(year, month, d);
         const event = getEvent(person.id, dateKey);
         const date = new Date(year, month - 1, d);
@@ -877,7 +915,7 @@ function StaffRow({ person, days, year, month, r, idx, todayDay, onTooltip, even
         const cellKey = `${person.id}_${d}`;
         const isSelected = selectedCells.has(cellKey);
 
-        // Priority: dispatch > event > default
+        // Priority: dispatch > AMaTS session > event > default
         let cellBg: string;
         let cellText: string;
         let cellMarker: string;
@@ -885,6 +923,11 @@ function StaffRow({ person, days, year, month, r, idx, todayDay, onTooltip, even
 
         if (dispatch) {
           const s = getDispatchCellStyle(dispatch.status);
+          cellBg = s.bg;
+          cellText = s.text;
+          cellMarker = s.marker;
+        } else if (amats) {
+          const s = getAmatsCellStyle(amats.status);
           cellBg = s.bg;
           cellText = s.text;
           cellMarker = s.marker;
@@ -900,8 +943,8 @@ function StaffRow({ person, days, year, month, r, idx, todayDay, onTooltip, even
           cellMarker = "";
         }
 
-        // Admin can select and edit any cell that is not a dispatch-bound day
-        const selectable = isAdmin && !dispatch;
+        // Admin can select and edit any cell that is not bound to a dispatch/session
+        const selectable = isAdmin && !dispatch && !amats;
 
         return (
           <td key={d} className="border-b border-r border-[#121212] text-center transition-colors p-0 relative select-none"
@@ -917,16 +960,18 @@ function StaffRow({ person, days, year, month, r, idx, todayDay, onTooltip, even
                 zIndex: isSelected ? 10 : 1,
                 cursor: selectable ? "cell" : "default"
               }}
-              onMouseEnter={(dispatch || event) ? (e) => onTooltip({
+              onMouseEnter={(dispatch || amats || event) ? (e) => onTooltip({
                 x: e.clientX, y: e.clientY,
                 dispatch: dispatch ?? undefined,
+                amats: amats ?? undefined,
                 event: event ?? undefined,
                 personName: person.full_name,
               }) : undefined}
               onMouseLeave={() => onTooltip(null)}
-              onMouseMove={(dispatch || event) ? (e) => onTooltip({
+              onMouseMove={(dispatch || amats || event) ? (e) => onTooltip({
                 x: e.clientX, y: e.clientY,
                 dispatch: dispatch ?? undefined,
+                amats: amats ?? undefined,
                 event: event ?? undefined,
                 personName: person.full_name,
               }) : undefined}>

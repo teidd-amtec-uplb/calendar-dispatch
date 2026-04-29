@@ -215,7 +215,8 @@ export default function DashboardPage() {
 
   const todayKey = toKey(new Date());
   const selectedDispatches = selectedDate ? (dispatchMap[selectedDate] ?? []) : [];
-  const isScheduler = role === "admin_scheduler" || role === "AMaTS";
+  const isScheduler = role === "admin_scheduler";
+  const isAmats = role === "AMaTS";
   const theme = getThemeForRole(role);
 
   if (loading) return (
@@ -239,11 +240,11 @@ export default function DashboardPage() {
             </h1>
             <p className="text-sm text-gray-500 mt-0.5 capitalize">Role: {role || "—"}</p>
           </div>
-          {isScheduler && (
-            <Link href="/dispatch/new"
+          {(isScheduler || isAmats) && (
+            <Link href={isAmats ? "/amats/new" : "/dispatch/new"}
               className="px-5 py-2.5 rounded-lg text-sm font-bold transition-all hover:opacity-90 self-start sm:self-auto"
               style={{ background: theme.primary, color: "white" }}>
-              + New Dispatch
+              {isAmats ? "+ New Testing Form" : "+ New Dispatch"}
             </Link>
           )}
         </div>

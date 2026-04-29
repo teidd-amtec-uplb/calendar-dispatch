@@ -123,8 +123,8 @@ export default function NewDispatchPage() {
       });
       const meData = await meRes.json();
       const userRole = meData.profile?.role ?? "";
-      if (!['admin_scheduler', 'AMaTS'].includes(userRole)) {
-        router.push("/dashboard"); return;
+      if (userRole !== 'admin_scheduler') {
+        router.push(userRole === 'AMaTS' ? "/amats/new" : "/dashboard"); return;
       }
 
       const [engRes, techRes, instRes, compRes, machRes] = await Promise.all([

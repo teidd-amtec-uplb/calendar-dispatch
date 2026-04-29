@@ -180,10 +180,10 @@ export default function CalendarPage() {
             <p className="text-sm text-gray-500 mt-0.5">{dispatches.length} dispatches · {amatsSessions.length} AMaTS sessions</p>
           </div>
           {(role === "admin_scheduler" || role === "AMaTS") && (
-            <Link href="/dispatch/new"
+            <Link href={role === "AMaTS" ? "/amats/new" : "/dispatch/new"}
               className="px-5 py-2.5 rounded-lg text-sm font-bold transition-all hover:opacity-90 self-start sm:self-auto"
               style={{ background: "#1B2A6B", color: "white" }}>
-              + New Dispatch
+              {role === "AMaTS" ? "+ New Testing Form" : "+ New Dispatch"}
             </Link>
           )}
         </div>

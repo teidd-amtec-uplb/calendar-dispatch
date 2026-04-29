@@ -86,7 +86,7 @@ export async function GET(req: Request) {
 
 // ─── POST: create dispatch ────────────────────────────────────────────────────
 export async function POST(req: Request) {
-  const auth = await requireRole(req, "admin_scheduler", "AMaTS");
+  const auth = await requireRole(req, "admin_scheduler");
   if (!auth.ok) return auth.response;
 
   const user = auth.data.user;

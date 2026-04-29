@@ -228,10 +228,10 @@ export default function DispatchListPage() {
                 ← Dashboard
               </Link>
               {(role === "admin_scheduler" || role === "AMaTS") && (
-                <Link href="/dispatch/new"
+                <Link href={role === "AMaTS" ? "/amats/new" : "/dispatch/new"}
                   className="px-4 py-2 text-sm text-white rounded hover:opacity-90"
                   style={{ background: "#1B2A6B" }}>
-                  + New Dispatch
+                  {role === "AMaTS" ? "+ New Testing Form" : "+ New Dispatch"}
                 </Link>
               )}
             </div>

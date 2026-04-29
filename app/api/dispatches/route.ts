@@ -43,7 +43,7 @@ type DispatchMachineInput = {
   status?: string | null;
 };
 
-function computeStatus(dateFrom: string | null, dateTo: string | null, stored?: string): string {
+function computeStatus(dateFrom: string | null, dateTo: string | null, stored?: string | null): string {
   if (stored && MANUAL_STATUSES.has(stored)) return stored;
   if (!dateFrom || !dateTo) return stored || "Pending";
   const today = new Date();

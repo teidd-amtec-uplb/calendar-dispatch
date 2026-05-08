@@ -18,7 +18,7 @@ type Dispatch = {
   location: string;
   dispatch_assignments: {
     assignment_type: "lead_engineer" | "assistant_engineer" | "technician";
-    staff: { full_name: string; initials: string } | null;
+    staff: { full_name: string } | null;
   }[];
 };
 
@@ -41,6 +41,12 @@ function getDispatchStatus(date_from: string | null, date_to: string | null): Di
   if (today < from) return "Scheduled";
   if (today > to) return "Completed";
   return "Ongoing";
+}
+
+function getSurname(fullName: string | null | undefined): string {
+  if (!fullName) return "?";
+  const parts = fullName.trim().split(" ");
+  return parts[parts.length - 1];
 }
 
 function parseLocalDate(str: string) {
@@ -73,9 +79,10 @@ export default function DispatchListPage() {
   const [loading, setLoading] = useState(true);
   const [dispatches, setDispatches] = useState<Dispatch[]>([]);
   const [search, setSearch] = useState("");
+  const [dispatchNumberFilter, setDispatchNumberFilter] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
-  const [monthFilter, setMonthFilter] = useState<string>("all");
-  const [creatorFilter, setCreatorFilter] = useState<string>("all");
+  const [dateFromFilter, setDateFromFilter] = useState("");
+  const [dateToFilter, setDateToFilter] = useState("");
   const [personnelFilter, setPersonnelFilter] = useState<string>("all");
   const [sortBy, setSortBy] = useState<string>("date_desc");
   
@@ -153,6 +160,15 @@ export default function DispatchListPage() {
     }
   }
 
+  function clearFilters() {
+    setSearch("");
+    setDispatchNumberFilter("");
+    setStatusFilter("all");
+    setDateFromFilter("");
+    setDateToFilter("");
+    setPersonnelFilter("all");
+  }
+
   let filtered = dispatches.filter((d) => {
     const q = search.toLowerCase();
     const matchesSearch =
@@ -160,23 +176,22 @@ export default function DispatchListPage() {
       d.company_name?.toLowerCase().includes(q) ||
       d.location?.toLowerCase().includes(q);
       
+    const matchesDispatchNumber =
+      !dispatchNumberFilter.trim() ||
+      d.dispatch_number?.toLowerCase().includes(dispatchNumberFilter.trim().toLowerCase());
+
     const matchesStatus =
       statusFilter === "all" ||
       getDispatchStatus(d.date_from, d.date_to) === statusFilter;
-      
-    const matchesMonth = 
-      monthFilter === "all" || 
-      (d.date_from && parseInt(d.date_from.split("-")[1], 10).toString() === monthFilter);
-      
-    const matchesCreator = 
-      creatorFilter === "all" || 
-      d.created_by_role === creatorFilter;
-      
-    const matchesPersonnel = 
-      personnelFilter === "all" || 
+
+    const matchesDateFrom = !dateFromFilter || (d.date_to ?? "") >= dateFromFilter;
+    const matchesDateTo   = !dateToFilter   || (d.date_from ?? "") <= dateToFilter;
+
+    const matchesPersonnel =
+      personnelFilter === "all" ||
       d.dispatch_assignments?.some(a => a.staff?.full_name === personnelFilter);
 
-    return matchesSearch && matchesStatus && matchesMonth && matchesCreator && matchesPersonnel;
+    return matchesSearch && matchesDispatchNumber && matchesStatus && matchesDateFrom && matchesDateTo && matchesPersonnel;
   });
 
   filtered = filtered.sort((a, b) => {
@@ -214,7 +229,7 @@ export default function DispatchListPage() {
   return (
     <AppLayout>
       <div className="min-h-screen bg-gray-50">
-        <div className="max-w-6xl mx-auto px-6 py-10">
+        <div className="w-full px-4 py-8 sm:px-6 lg:px-8">
 
           {/* Header */}
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-8">
@@ -227,92 +242,85 @@ export default function DispatchListPage() {
                 className="px-4 py-2 text-sm border border-gray-300 rounded hover:bg-gray-100 text-gray-700">
                 ← Dashboard
               </Link>
-              {(role === "admin_scheduler" || role === "AMaTS") && (
-                <Link href={role === "AMaTS" ? "/amats/new" : "/dispatch/new"}
+              {role === "admin_scheduler" && (
+                <Link href="/dispatch/new"
                   className="px-4 py-2 text-sm text-white rounded hover:opacity-90"
                   style={{ background: "#1B2A6B" }}>
-                  {role === "AMaTS" ? "+ New Testing Form" : "+ New Dispatch"}
+                  + New Dispatch
                 </Link>
               )}
             </div>
           </div>
 
           {/* Filters & Sorting */}
-          <div className="bg-white p-4 rounded-lg border border-gray-200 shadow-sm mb-6 flex flex-col gap-4">
-            <div className="flex flex-col sm:flex-row gap-3">
+          <div className="mb-4 rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
+            <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-6">
               <input
                 type="text"
-                placeholder="Search by dispatch #, company, or location..."
-                className="flex-1 border border-gray-300 rounded px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                placeholder="Search by company, or location..."
+                className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-600 xl:col-span-2"
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
               />
+              <input
+                type="text"
+                placeholder="Dispatch number"
+                className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-600"
+                value={dispatchNumberFilter}
+                onChange={(e) => setDispatchNumberFilter(e.target.value)}
+              />
               <select
-                className="border border-gray-300 rounded px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
-                value={sortBy}
-                onChange={e => setSortBy(e.target.value)}>
-                <option value="date_desc">Sort: Date (Newest First)</option>
-                <option value="date_asc">Sort: Date (Oldest First)</option>
-                <option value="dispatch_asc">Sort: Dispatch # (A-Z)</option>
-                <option value="dispatch_desc">Sort: Dispatch # (Z-A)</option>
-                <option value="engineers_asc">Sort: Engineers (A-Z)</option>
-                <option value="technicians_asc">Sort: Technicians (A-Z)</option>
-              </select>
-            </div>
-            
-            <div className="flex flex-wrap gap-3">
-              <select
-                className="border border-gray-300 rounded px-3 py-1.5 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+                className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-600"
                 value={statusFilter}
                 onChange={e => setStatusFilter(e.target.value)}>
-                <option value="all">Status: All</option>
+                <option value="all">All statuses</option>
                 <option value="Scheduled">Scheduled</option>
                 <option value="Ongoing">Ongoing</option>
                 <option value="Completed">Completed</option>
               </select>
-
               <select
-                className="border border-gray-300 rounded px-3 py-1.5 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
-                value={monthFilter}
-                onChange={e => setMonthFilter(e.target.value)}>
-                <option value="all">Month: All</option>
-                <option value="1">January</option>
-                <option value="2">February</option>
-                <option value="3">March</option>
-                <option value="4">April</option>
-                <option value="5">May</option>
-                <option value="6">June</option>
-                <option value="7">July</option>
-                <option value="8">August</option>
-                <option value="9">September</option>
-                <option value="10">October</option>
-                <option value="11">November</option>
-                <option value="12">December</option>
-              </select>
-
-              <select
-                className="border border-gray-300 rounded px-3 py-1.5 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
-                value={creatorFilter}
-                onChange={e => setCreatorFilter(e.target.value)}>
-                <option value="all">Created By: All</option>
-                <option value="AMaTS">AMaTS</option>
-                <option value="admin_scheduler">Scheduler</option>
-              </select>
-
-              <select
-                className="border border-gray-300 rounded px-3 py-1.5 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+                className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-600"
                 value={personnelFilter}
                 onChange={e => setPersonnelFilter(e.target.value)}>
-                <option value="all">Personnel: All</option>
+                <option value="all">All personnel</option>
                 {uniquePersonnel.map(name => (
                   <option key={name} value={name}>{name}</option>
                 ))}
               </select>
+              <button
+                onClick={clearFilters}
+                className="rounded-lg border border-gray-300 px-3 py-2 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50"
+              >
+                Clear Filters
+              </button>
+            </div>
+            <div className="mt-3 grid gap-3 md:grid-cols-2 xl:max-w-lg">
+              <label className="flex items-center gap-2 text-sm text-gray-600">
+                <span className="w-10 shrink-0">From</span>
+                <input
+                  type="date"
+                  value={dateFromFilter}
+                  onChange={(e) => setDateFromFilter(e.target.value)}
+                  className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-600"
+                />
+              </label>
+              <label className="flex items-center gap-2 text-sm text-gray-600">
+                <span className="w-10 shrink-0">To</span>
+                <input
+                  type="date"
+                  value={dateToFilter}
+                  onChange={(e) => setDateToFilter(e.target.value)}
+                  className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-600"
+                />
+              </label>
+            </div>
+            <div className="mt-3 text-xs text-gray-500">
+              Showing {filtered.length} of {dispatches.length} dispatches
             </div>
           </div>
 
           {/* Table */}
-          <div className="bg-white rounded-lg border border-gray-200 overflow-hidden shadow-sm">
+          <div className="overflow-x-auto rounded-lg border border-gray-200 bg-white shadow-sm">
             <table className="w-full text-sm">
               <thead className="bg-gray-100 text-gray-600 uppercase text-xs tracking-wide">
                 <tr>
@@ -325,7 +333,7 @@ export default function DispatchListPage() {
                   <th className="px-4 py-3 text-left">Engineers</th>
                   <th className="px-4 py-3 text-left">Technicians</th>
                   <th className="px-4 py-3 text-left">Created</th>
-                  {(role === "admin_scheduler" || role === "AMaTS") && (
+                  {role === "admin_scheduler" && (
                     <th className="px-4 py-3 text-left">Actions</th>
                   )}
                 </tr>
@@ -333,7 +341,7 @@ export default function DispatchListPage() {
               <tbody className="divide-y divide-gray-100">
                 {filtered.length === 0 ? (
                   <tr>
-                    <td colSpan={10} className="px-4 py-16 text-center">
+                    <td colSpan={role === "admin_scheduler" ? 10 : 9} className="px-4 py-16 text-center">
                       <p className="text-gray-500 font-semibold text-base mb-1">
                         {noAssignments ? "No dispatches assigned to you." : "No dispatches found."}
                       </p>
@@ -348,11 +356,11 @@ export default function DispatchListPage() {
                   filtered.map((d) => {
                     const engineers = d.dispatch_assignments
                       ?.filter((a) => ["lead_engineer", "assistant_engineer"].includes(a.assignment_type))
-                      .map((a) => a.staff?.initials ?? "?")
+                      .map((a) => getSurname(a.staff?.full_name))
                       .join(", ") || "—";
                     const technicians = d.dispatch_assignments
                       ?.filter((a) => a.assignment_type === "technician")
-                      .map((a) => a.staff?.initials ?? "?")
+                      .map((a) => getSurname(a.staff?.full_name))
                       .join(", ") || "—";
                     return (
                       <tr key={d.id}
@@ -375,7 +383,7 @@ export default function DispatchListPage() {
                         <td className="px-4 py-3 text-gray-400 text-xs">
                           {new Date(d.created_at).toLocaleDateString()}
                         </td>
-                        {(role === "admin_scheduler" || role === "AMaTS") && (
+                        {role === "admin_scheduler" && (
                           <td className="px-4 py-3">
                             <button
                               onClick={(e) => handleDeleteDispatch(e, d)}

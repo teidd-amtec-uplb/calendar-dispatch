@@ -102,12 +102,12 @@ export default function DispatchDetailPage() {
   const instruments = dispatch.dispatch_instruments ?? [];
   const itinerary   = dispatch.dispatch_itinerary ?? [];
   const machines    = dispatch.dispatch_machines ?? [];
-  const canEdit     = ["admin_scheduler", "AMaTS"].includes(role);
+  const canEdit     = role === "admin_scheduler";
 
   return (
     <AppLayout>
       <div className="min-h-screen bg-gray-50">
-        <div className="max-w-5xl mx-auto px-6 py-10 space-y-8">
+        <div className="w-full px-4 py-8 sm:px-6 lg:px-8 space-y-8">
 
           {/* Header */}
           <div className="flex items-start justify-between">
@@ -132,17 +132,19 @@ export default function DispatchDetailPage() {
               </Link>
 
               {/* ── Export Documents button ──────────────────────────────── */}
-              <button
-                onClick={() => setShowDocModal(true)}
-                className="px-4 py-2 text-sm border rounded flex items-center gap-2 transition-colors"
-                style={{ borderColor: "#1B2A6B", color: "#1B2A6B", background: "white" }}>
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none"
-                  viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                  <path strokeLinecap="round" strokeLinejoin="round"
-                    d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
-                </svg>
-                Export Documents
-              </button>
+              {canEdit && (
+                <button
+                  onClick={() => setShowDocModal(true)}
+                  className="px-4 py-2 text-sm border rounded flex items-center gap-2 transition-colors"
+                  style={{ borderColor: "#1B2A6B", color: "#1B2A6B", background: "white" }}>
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none"
+                    viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round"
+                      d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+                  </svg>
+                  Export Documents
+                </button>
+              )}
 
               {canEdit && (
                 <Link href={`/dispatches/${dispatch.id}/edit`}

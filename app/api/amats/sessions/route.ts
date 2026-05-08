@@ -21,7 +21,7 @@ export async function GET(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
-  const auth = await requireRole(req, "AMaTS", "admin_scheduler");
+  const auth = await requireRole(req, "AMaTS");
   if (!auth.ok) return auth.response;
   const user = auth.data.user;
 

@@ -92,7 +92,7 @@ export default function AMaTSSessionDetailPage() {
     );
   }
 
-  const isManager = userRole === "AMaTS" || userRole === "admin_scheduler";
+  const isManager = userRole === "AMaTS";
   const testEngineers = session.amats_session_assignments.filter(
     (a) => a.assignment_type === "test_engineer"
   );
@@ -168,7 +168,7 @@ export default function AMaTSSessionDetailPage() {
 
   return (
     <AppLayout>
-      <div className="max-w-4xl mx-auto px-4 py-8">
+      <div className="w-full px-4 py-8 sm:px-6 lg:px-8">
         {/* Header */}
         <div className="flex items-start justify-between mb-6">
           <div>
@@ -187,33 +187,34 @@ export default function AMaTSSessionDetailPage() {
             <span className={`px-3 py-1 rounded-full text-sm font-medium border ${getStatusColor(session.status)}`}>
               {session.status}
             </span>
-            {/* Copy for Group Chat */}
-            <button
-              onClick={handleCopy}
-              title="Copy for Messenger Group Chat"
-              className="flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-lg border transition-all"
-              style={{
-                borderColor: copied ? '#16a34a' : '#6B7280',
-                color: copied ? '#16a34a' : '#374151',
-                background: copied ? '#f0fdf4' : 'white',
-              }}
-            >
-              {copied ? (
-                <>
-                  <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-                  </svg>
-                  Copied!
-                </>
-              ) : (
-                <>
-                  <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
-                  </svg>
-                  Copy for Chat
-                </>
-              )}
-            </button>
+            {isManager && (
+              <button
+                onClick={handleCopy}
+                title="Copy for Messenger Group Chat"
+                className="flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-lg border transition-all"
+                style={{
+                  borderColor: copied ? '#16a34a' : '#6B7280',
+                  color: copied ? '#16a34a' : '#374151',
+                  background: copied ? '#f0fdf4' : 'white',
+                }}
+              >
+                {copied ? (
+                  <>
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                    </svg>
+                    Copied!
+                  </>
+                ) : (
+                  <>
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                    </svg>
+                    Copy for Chat
+                  </>
+                )}
+              </button>
+            )}
             {isManager && (
               <button
                 onClick={() => router.push(`/amats/${session.id}/edit`)}

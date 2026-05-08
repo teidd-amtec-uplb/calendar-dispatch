@@ -19,6 +19,7 @@ const ADMIN_NAV = [
   { href: "/dashboard", label: "Dashboard", icon: "⊞" },
   { href: "/dispatches", label: "Dispatches", icon: "📋" },
   { href: "/workload-view", label: "Workload", icon: "📊" },
+  { href: "/dispatch/companies", label: "Companies", icon: "🏢" },
   { href: "/dispatch/new", label: "New Dispatch", icon: "＋" },
   { href: "/admin", label: "Admin Panel", icon: "🛡️" },
   { href: "/account", label: "Account Settings", icon: "⚙" },
@@ -28,6 +29,7 @@ const AMATS_NAV = [
   { href: "/dashboard", label: "Dashboard", icon: "⊞" },
   { href: "/amats", label: "AMaTS Sessions", icon: "📋" },
   { href: "/workload-view", label: "Workload", icon: "📊" },
+  { href: "/amats/machine-tests", label: "Machines & Tests", icon: "🔧" },
   { href: "/amats/new", label: "New Testing Form", icon: "＋" },
   { href: "/admin", label: "Admin Panel", icon: "🛡️" },
   { href: "/account", label: "Account Settings", icon: "⚙" },
@@ -51,7 +53,20 @@ export default function Sidebar({ email, fullName, role, collapsed, onToggle }: 
 
   const isManager = role === "admin_scheduler" || role === "AMaTS";
   const canVerifyAccounts = isVerifierEmail(email);
-  const NAV = role === "admin_scheduler" ? ADMIN_NAV : role === "AMaTS" ? AMATS_NAV : BASE_NAV;
+  const roleNav = role === "admin_scheduler" ? ADMIN_NAV : role === "AMaTS" ? AMATS_NAV : BASE_NAV;
+  const NAV = role === "admin_scheduler"
+    ? [
+        ...roleNav.slice(0, 2),
+        { ...AMATS_NAV[1] },
+        ...roleNav.slice(2),
+      ]
+    : role === "AMaTS"
+      ? [
+          ...roleNav.slice(0, 2),
+          { ...ADMIN_NAV[1] },
+          ...roleNav.slice(2),
+        ]
+      : roleNav;
 
   const [pending, setPending] = useState<PendingUser[]>([]);
   const [showPending, setShowPending] = useState(false);

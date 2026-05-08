@@ -34,11 +34,12 @@ export async function PUT(
   context: { params: Promise<{ id: string }> }
 ) {
   const { id } = await context.params;
-  const auth = await requireRole(req, "AMaTS", "admin_scheduler");
+  const auth = await requireRole(req, "AMaTS");
   if (!auth.ok) return auth.response;
 
   const body = await req.json();
   const {
+    session_number,
     machine,
     machine_name_or_code,
     date_from,
@@ -54,6 +55,7 @@ export async function PUT(
   const { error: updateError } = await supabaseAdmin
     .from("amats_sessions")
     .update({
+      ...(session_number ? { session_number } : {}),
       machine,
       machine_name_or_code: machine_name_or_code || null,
       date_from,
@@ -64,7 +66,15 @@ export async function PUT(
     })
     .eq("id", id);
 
-  if (updateError) return NextResponse.json({ error: updateError.message }, { status: 500 });
+  if (updateError) {
+    if (updateError.code === "23505") {
+      return NextResponse.json(
+        { error: "Session number already exists" },
+        { status: 409 }
+      );
+    }
+    return NextResponse.json({ error: updateError.message }, { status: 500 });
+  }
 
   // Replace tests
   await supabaseAdmin.from("amats_session_tests").delete().eq("session_id", id);
@@ -100,7 +110,7 @@ export async function DELETE(
   context: { params: Promise<{ id: string }> }
 ) {
   const { id } = await context.params;
-  const auth = await requireRole(req, "AMaTS", "admin_scheduler");
+  const auth = await requireRole(req, "AMaTS");
   if (!auth.ok) return auth.response;
 
   const { error } = await supabaseAdmin

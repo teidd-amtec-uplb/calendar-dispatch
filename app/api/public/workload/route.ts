@@ -88,6 +88,10 @@ export async function GET(req: Request) {
       date_from,
       date_to,
       status,
+      amats_session_tests (
+        id,
+        test_name
+      ),
       amats_session_assignments (
         id,
         staff_id,

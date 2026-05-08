@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import { requireRole } from "@/lib/auth/requireAccess";
 
-// DELETE /api/staff/[id] — Permanently delete a staff member
+// DELETE /api/staff/[id] — Soft delete a staff member by setting active to false
 export async function DELETE(
   req: Request,
   { params }: { params: Promise<{ id: string }> }
@@ -14,7 +14,7 @@ export async function DELETE(
 
   const { error } = await supabaseAdmin
     .from("staff")
-    .delete()
+    .update({ active: false })
     .eq("id", id);
 
   if (error) {

@@ -4,7 +4,6 @@
 import { useState, useEffect, useCallback } from "react";
 import { useRouter, useParams } from "next/navigation";
 import AppLayout from "@/app/components/AppLayout";
-import { getMachineNames, getTestsForMachine } from "@/lib/amats-machine-tests";
 import { supabaseBrowser } from "@/lib/supabase/client";
 
 interface StaffMember {
@@ -26,6 +25,29 @@ function toDatetimeLocal(iso: string): string {
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
 }
 
+function getSessionSuffix(value: string): string {
+  return value.trim().replace(/^TAM\s+/i, "").trim();
+}
+
+function formatSessionNumber(value: string): string {
+  return `TAM ${getSessionSuffix(value)}`;
+}
+
+function buildMachineNameOrCode(machineName: string, brandModel: string, code: string): string | null {
+  const parts = [machineName, brandModel, code].map((part) => part.trim()).filter(Boolean);
+  return parts.length > 0 ? parts.join(" / ") : null;
+}
+
+function parseMachineNameOrCode(value: string | null): { machineName: string; brandModel: string; machineCode: string } {
+  if (!value) return { machineName: "", brandModel: "", machineCode: "" };
+  const parts = value.split(" / ").map((part) => part.trim());
+  return {
+    machineName: parts[0] ?? "",
+    brandModel: parts[1] ?? "",
+    machineCode: parts.slice(2).join(" / "),
+  };
+}
+
 export default function EditAMaTSSessionPage() {
   const router = useRouter();
   const params = useParams();
@@ -34,7 +56,9 @@ export default function EditAMaTSSessionPage() {
   // Form state
   const [sessionNumber, setSessionNumber] = useState("");
   const [machine, setMachine] = useState("");
-  const [machineNameOrCode, setMachineNameOrCode] = useState("");
+  const [machineName, setMachineName] = useState("");
+  const [brandModel, setBrandModel] = useState("");
+  const [machineCode, setMachineCode] = useState("");
   const [selectedTests, setSelectedTests] = useState<string[]>([]);
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo] = useState("");
@@ -56,7 +80,9 @@ export default function EditAMaTSSessionPage() {
   const [staffAvailability, setStaffAvailability] = useState<StaffAvailability>({});
   const [availabilityLoading, setAvailabilityLoading] = useState(false);
 
-  const machineNames = getMachineNames();
+  const [dynamicMachines, setDynamicMachines] = useState<{machine: string, tests: string[]}[]>([]);
+
+  const machineNames = dynamicMachines.map(m => m.machine);
   const statusOptions = ["Scheduled", "Ongoing", "Done", "Re-scheduled", "Cancelled"];
 
   // Auth + load existing session + staff
@@ -72,36 +98,41 @@ export default function EditAMaTSSessionPage() {
         body: JSON.stringify({ userId: authSession.user.id }),
       });
       const profileData = await profileRes.json();
-      if (!["AMaTS", "admin_scheduler"].includes(profileData.profile?.role)) {
+      if (profileData.profile?.role !== "AMaTS") {
         router.push("/dashboard");
         return;
       }
 
       setToken(authSession.access_token);
 
-      // Load staff + existing session in parallel
-      const [engRes, techRes, sessionRes] = await Promise.all([
+      // Load staff + existing session + machines in parallel
+      const [engRes, techRes, sessionRes, machinesRes] = await Promise.all([
         fetch("/api/staff/engineers"),
         fetch("/api/staff/technicians"),
         fetch(`/api/amats/sessions/${id}`, {
           headers: { Authorization: `Bearer ${authSession.access_token}` },
         }),
+        fetch("/api/amats/machine-tests"),
       ]);
 
-      const [engData, techData, sessionData] = await Promise.all([
-        engRes.json(), techRes.json(), sessionRes.json(),
+      const [engData, techData, sessionData, machinesData] = await Promise.all([
+        engRes.json(), techRes.json(), sessionRes.json(), machinesRes.json()
       ]);
 
       setEngineers((engData.staff || []).map((e: StaffMember) => ({ ...e, type: "engineer" })));
       setTechnicians((techData.staff || []).map((t: StaffMember) => ({ ...t, type: "technician" })));
+      if (machinesData.detailed) setDynamicMachines(machinesData.detailed);
 
       const s = sessionData.session;
       if (!s) { router.push("/amats"); return; }
 
       // Pre-populate form
-      setSessionNumber(s.session_number ?? "");
+      setSessionNumber(getSessionSuffix(s.session_number ?? ""));
       setMachine(s.machine ?? "");
-      setMachineNameOrCode(s.machine_name_or_code ?? "");
+      const machineParts = parseMachineNameOrCode(s.machine_name_or_code ?? null);
+      setMachineName(machineParts.machineName);
+      setBrandModel(machineParts.brandModel);
+      setMachineCode(machineParts.machineCode);
       setDateFrom(toDatetimeLocal(s.date_from));
       setDateTo(toDatetimeLocal(s.date_to));
       setStatus(s.status ?? "Scheduled");
@@ -128,12 +159,12 @@ export default function EditAMaTSSessionPage() {
   // When machine changes, refresh available tests (but keep existing selections if still valid)
   useEffect(() => {
     if (machine) {
-      const tests = getTestsForMachine(machine);
+      const tests = dynamicMachines.find(m => m.machine === machine)?.tests || [];
       setAvailableTests(tests);
     } else {
       setAvailableTests([]);
     }
-  }, [machine]);
+  }, [machine, dynamicMachines]);
 
   // Fetch availability when dates change
   useEffect(() => {
@@ -179,6 +210,12 @@ export default function EditAMaTSSessionPage() {
 
   const handleSave = async () => {
     setError(null);
+    const sessionNumberSuffix = getSessionSuffix(sessionNumber);
+    if (!sessionNumberSuffix) { setError("Session number is required."); return; }
+    if (!/^\d{4}-\d{4}$/.test(sessionNumberSuffix)) {
+      setError("Session number must follow yyyy-####, for example 2026-0001.");
+      return;
+    }
     if (!machine) { setError("Machine selection is required."); return; }
     if (!dateFrom || !dateTo) { setError("Date From and Date To are required."); return; }
     if (selectedTests.length === 0) { setError("At least one test must be selected."); return; }
@@ -193,8 +230,9 @@ export default function EditAMaTSSessionPage() {
           Authorization: `Bearer ${token}`,
         },
         body: JSON.stringify({
+          session_number: formatSessionNumber(sessionNumberSuffix),
           machine,
-          machine_name_or_code: machineNameOrCode.trim() || null,
+          machine_name_or_code: buildMachineNameOrCode(machineName, brandModel, machineCode),
           date_from: dateFrom,
           date_to: dateTo,
           status,
@@ -226,7 +264,7 @@ export default function EditAMaTSSessionPage() {
 
   return (
     <AppLayout>
-      <div className="max-w-4xl mx-auto px-4 py-8">
+      <div className="w-full px-4 py-8 sm:px-6 lg:px-8">
         {/* Header */}
         <div className="flex items-center justify-between mb-8">
           <div>
@@ -237,7 +275,7 @@ export default function EditAMaTSSessionPage() {
               ← Back to Session
             </button>
             <h1 className="text-2xl font-bold text-gray-900">Edit Session</h1>
-            <p className="text-sm text-gray-500 mt-1 font-mono">{sessionNumber}</p>
+            <p className="text-sm text-gray-500 mt-1 font-mono">{formatSessionNumber(sessionNumber)}</p>
           </div>
         </div>
 
@@ -274,9 +312,35 @@ export default function EditAMaTSSessionPage() {
           {/* Machine */}
           <section className="bg-white border border-gray-200 rounded-xl p-6 shadow-sm">
             <h2 className="text-base font-semibold text-gray-800 mb-4 pb-2 border-b border-gray-100">
-              Machine
+              Session Information
             </h2>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Session Number <span className="text-red-500">*</span>
+                </label>
+                <div className="flex overflow-hidden rounded-lg border border-gray-300 bg-white focus-within:ring-2 focus-within:ring-red-500">
+                  <span className="flex items-center border-r border-gray-300 bg-gray-50 px-3 text-sm font-semibold text-gray-700">
+                    TAM
+                  </span>
+                  <input
+                    type="text"
+                    value={sessionNumber}
+                    onChange={(e) => setSessionNumber(getSessionSuffix(e.target.value))}
+                    placeholder="2026-0001"
+                    className="w-full border-0 px-3 py-2 text-sm text-gray-900 focus:outline-none"
+                  />
+                </div>
+              </div>
+            </div>
+          </section>
+
+          {/* Machine */}
+          <section className="bg-white border border-gray-200 rounded-xl p-6 shadow-sm">
+            <h2 className="text-base font-semibold text-gray-800 mb-4 pb-2 border-b border-gray-100">
+              Machine
+            </h2>
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-5">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
                   Machine Type <span className="text-red-500">*</span>
@@ -294,13 +358,37 @@ export default function EditAMaTSSessionPage() {
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Specific Machine Name or Code
+                  Machine Name
                 </label>
                 <input
                   type="text"
-                  value={machineNameOrCode}
-                  onChange={(e) => setMachineNameOrCode(e.target.value)}
-                  placeholder="e.g. HTP-200A or Brand Model SN#"
+                  value={machineName}
+                  onChange={(e) => setMachineName(e.target.value)}
+                  placeholder="e.g. GOLDEN BOW"
+                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-red-500 placeholder:text-gray-400"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Brand Model
+                </label>
+                <input
+                  type="text"
+                  value={brandModel}
+                  onChange={(e) => setBrandModel(e.target.value)}
+                  placeholder="e.g. 80DI"
+                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-red-500 placeholder:text-gray-400"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Code
+                </label>
+                <input
+                  type="text"
+                  value={machineCode}
+                  onChange={(e) => setMachineCode(e.target.value)}
+                  placeholder="e.g. TAM-001"
                   className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-red-500 placeholder:text-gray-400"
                 />
               </div>

@@ -10,7 +10,7 @@ type TransportMode =
   | "college_vehicle"
   | "other";
 
-type Tab = "basic" | "instruments" | "itinerary" | "machines";
+type Tab = "basic" | "machines" | "instruments";
 
 type StaffMember = {
   id: string;
@@ -141,7 +141,7 @@ export default function EditDispatchPage() {
         body: JSON.stringify({ userId: data.user.id }),
       });
       const meData = await meRes.json();
-      if (!['admin_scheduler', 'AMaTS'].includes(meData.profile?.role)) {
+      if (meData.profile?.role !== 'admin_scheduler') {
         router.push("/dashboard"); return;
       }
 
@@ -566,9 +566,8 @@ export default function EditDispatchPage() {
 
   const tabs: { key: Tab; label: string }[] = [
     { key: "basic", label: "Basic Info" },
-    { key: "instruments", label: `Instruments${selectedInstruments.some(i => i.instrument_id) ? ` (${selectedInstruments.filter(i => i.instrument_id).length})` : ""}` },
-    { key: "itinerary", label: "Itinerary" },
     { key: "machines", label: `Machines${machines.some(m => m.machine) ? ` (${machines.filter(m => m.machine).length})` : ""}` },
+    { key: "instruments", label: `Instruments${selectedInstruments.some(i => i.instrument_id) ? ` (${selectedInstruments.filter(i => i.instrument_id).length})` : ""}` },
   ];
 
   const inputClass = "w-full px-3 py-2.5 rounded-lg border text-sm outline-none focus:ring-2 focus:ring-blue-100";
@@ -577,7 +576,7 @@ export default function EditDispatchPage() {
 
   return (
     <AppLayout>
-      <div className="p-8 max-w-5xl">
+      <div className="w-full px-4 py-8 sm:px-6 lg:px-8">
         {/* ── FIXED TITLE ── */}
         <div className="mb-8">
           <p className="text-xs font-semibold uppercase tracking-widest mb-1" style={{ color: "#F5A623" }}>
@@ -1028,19 +1027,6 @@ export default function EditDispatchPage() {
             </div>
           )}
 
-          {/* ── TAB: Itinerary ──────────────────────────────────────────────── */}
-          {activeTab === "itinerary" && (
-            <div className="px-6 py-12 flex flex-col items-center justify-center text-center">
-              <div className="w-12 h-12 rounded-full flex items-center justify-center mb-4" style={{ background: "#F4F6FB" }}>
-                <svg className="w-6 h-6 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5}
-                    d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                </svg>
-              </div>
-              <p className="text-sm font-semibold text-gray-700">Itinerary is filled after testing</p>
-              <p className="text-xs text-gray-400 mt-1 max-w-sm">The itinerary is completed during and after the dispatch. It will be available on the dispatch detail page.</p>
-            </div>
-          )}
 
           {/* ── TAB: Machines ───────────────────────────────────────────────── */}
           {activeTab === "machines" && (

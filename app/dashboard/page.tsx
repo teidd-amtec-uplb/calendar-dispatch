@@ -113,6 +113,7 @@ export default function DashboardPage() {
   const [dispatches, setDispatches] = useState<Dispatch[]>([]);
   const [amatsSessions, setAmatsSessions] = useState<AmatsSession[]>([]);
   const [filterSource, setFilterSource] = useState<'all'|'dispatch'|'amats'>('all');
+  const [listView, setListView] = useState<'dispatches'|'amats'>('dispatches');
   const [loading, setLoading] = useState(true);
   const [current, setCurrent] = useState(() => new Date());
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
@@ -201,6 +202,21 @@ export default function DashboardPage() {
       return false;
     });
   }, [dispatches, current]);
+
+  const monthAmatsSessions = useMemo(() => {
+    const y = current.getFullYear();
+    const m = current.getMonth();
+    const monthStart = new Date(y, m, 1);
+    const monthEnd = new Date(y, m + 1, 0);
+    return amatsSessions.filter(s => {
+      if (!s.date_from && !s.date_to) return false;
+      const from = s.date_from ? parseLocalDate(s.date_from.slice(0, 10)) : null;
+      const to = s.date_to ? parseLocalDate(s.date_to.slice(0, 10)) : null;
+      if (from && to) return from <= monthEnd && to >= monthStart;
+      if (from) return from.getMonth() === m && from.getFullYear() === y;
+      return false;
+    });
+  }, [amatsSessions, current]);
 
   function getMonthDays() {
     const year = current.getFullYear();
@@ -443,27 +459,57 @@ export default function DashboardPage() {
           </div>
         </div>
 
-        {/* ──────────────────── DISPATCH LIST (workload-view style) ──────────────────── */}
+        {/* ──────────────────── MONTH LISTS (workload-view style) ──────────────────── */}
         <div className="bg-white rounded-xl border border-gray-200 overflow-auto shadow-sm">
           <div className="flex items-center justify-between px-5 py-3 border-b border-gray-100" style={{ background: "#F8F9FB" }}>
             <div>
               <h2 className="text-sm font-black uppercase tracking-widest text-gray-800">
-                📋 Dispatch List — {MONTHS[current.getMonth()]} {current.getFullYear()}
+                {listView === "dispatches" ? "📋 Dispatch List" : "AMaTS Sessions List"} — {MONTHS[current.getMonth()]} {current.getFullYear()}
               </h2>
-              <p className="text-xs text-gray-400 mt-0.5">{monthDispatches.length} dispatches</p>
+              <p className="text-xs text-gray-400 mt-0.5">
+                {listView === "dispatches"
+                  ? `${monthDispatches.length} dispatches`
+                  : `${monthAmatsSessions.length} sessions`}
+              </p>
             </div>
-            <Link href="/dispatches" className="text-xs font-semibold hover:underline" style={{ color: theme.accent }}>
-              View All →
-            </Link>
+            <div className="flex items-center gap-3">
+              <div className="inline-flex rounded-lg border border-gray-200 bg-white p-1">
+                <button
+                  type="button"
+                  onClick={() => setListView("dispatches")}
+                  className="rounded-md px-3 py-1.5 text-xs font-bold transition-colors"
+                  style={{ background: listView === "dispatches" ? theme.primary : "transparent", color: listView === "dispatches" ? "white" : "#6B7280" }}
+                >
+                  Dispatches
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setListView("amats")}
+                  className="rounded-md px-3 py-1.5 text-xs font-bold transition-colors"
+                  style={{ background: listView === "amats" ? theme.primary : "transparent", color: listView === "amats" ? "white" : "#6B7280" }}
+                >
+                  AMaTS Sessions
+                </button>
+              </div>
+              {listView === "dispatches" ? (
+                <Link href="/dispatches" className="text-xs font-semibold hover:underline" style={{ color: theme.accent }}>
+                  View All →
+                </Link>
+              ) : (
+                <Link href="/amats" className="text-xs font-semibold hover:underline" style={{ color: theme.accent }}>
+                  View All →
+                </Link>
+              )}
+            </div>
           </div>
 
-          {monthDispatches.length === 0 ? (
+          {listView === "dispatches" && monthDispatches.length === 0 ? (
             <div className="flex items-center justify-center py-12">
               <p className="text-sm text-gray-400">
                 {noAssignments ? "You have no dispatches assigned to you yet." : "No dispatches this month."}
               </p>
             </div>
-          ) : (
+          ) : listView === "dispatches" ? (
             <div className="overflow-x-auto" style={{ fontSize: "0.75rem" }}>
               <table className="w-full border-collapse">
                 <thead>
@@ -530,6 +576,58 @@ export default function DashboardPage() {
                         </td>
                         <td className="px-3 py-2 border-b border-gray-100 text-gray-600">{d.contact_person ?? "—"}</td>
                         <td className="px-3 py-2 border-b border-gray-100 text-gray-600 font-mono">{d.contact_number ?? "—"}</td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          ) : monthAmatsSessions.length === 0 ? (
+            <div className="flex items-center justify-center py-12">
+              <p className="text-sm text-gray-400">No AMaTS sessions this month.</p>
+            </div>
+          ) : (
+            <div className="overflow-x-auto" style={{ fontSize: "0.75rem" }}>
+              <table className="w-full border-collapse">
+                <thead>
+                  <tr style={{ background: "#F8F9FB" }}>
+                    {["Session #", "Status", "Date From", "Date To", "Machine Type", "Machine Details", "Tests", "Test Engineers", "Test Technicians"].map(h => (
+                      <th key={h} className="px-3 py-2.5 text-left text-xs font-bold uppercase tracking-wider text-gray-500 border-b border-gray-200 whitespace-nowrap">
+                        {h}
+                      </th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {monthAmatsSessions.map((s, idx) => {
+                    const st = getStatusStyle(s.status);
+                    const engineers = s.amats_session_assignments
+                      ?.filter(a => a.assignment_type === "test_engineer")
+                      .map(a => a.staff?.full_name)
+                      .filter(Boolean) ?? [];
+                    const technicians = s.amats_session_assignments
+                      ?.filter(a => a.assignment_type === "test_technician")
+                      .map(a => a.staff?.full_name)
+                      .filter(Boolean) ?? [];
+                    const tests = s.amats_session_tests?.map(t => t.test_name).filter(Boolean) ?? [];
+
+                    return (
+                      <tr key={s.id} style={{ background: idx % 2 === 0 ? "white" : "#FAFAFA" }}
+                        onClick={() => router.push(`/amats/${s.id}`)}
+                        className="hover:bg-red-50/40 transition-colors cursor-pointer">
+                        <td className="px-3 py-2 border-b border-gray-100 font-mono font-semibold text-gray-700 whitespace-nowrap">{s.session_number ?? "—"}</td>
+                        <td className="px-3 py-2 border-b border-gray-100">
+                          <span className="px-2 py-0.5 rounded-full text-xs font-bold whitespace-nowrap" style={{ background: st.bg, color: st.color }}>
+                            {s.status}
+                          </span>
+                        </td>
+                        <td className="px-3 py-2 border-b border-gray-100 text-gray-600 whitespace-nowrap">{s.date_from ?? "—"}</td>
+                        <td className="px-3 py-2 border-b border-gray-100 text-gray-600 whitespace-nowrap">{s.date_to ?? "—"}</td>
+                        <td className="px-3 py-2 border-b border-gray-100 text-gray-700 font-medium whitespace-nowrap">{s.machine ?? "—"}</td>
+                        <td className="px-3 py-2 border-b border-gray-100 text-gray-600">{s.machine_name_or_code ?? "—"}</td>
+                        <td className="px-3 py-2 border-b border-gray-100 text-gray-600">{tests.length > 0 ? tests.join(", ") : "—"}</td>
+                        <td className="px-3 py-2 border-b border-gray-100 text-gray-600">{engineers.length > 0 ? engineers.join(", ") : "—"}</td>
+                        <td className="px-3 py-2 border-b border-gray-100 text-gray-600">{technicians.length > 0 ? technicians.join(", ") : "—"}</td>
                       </tr>
                     );
                   })}

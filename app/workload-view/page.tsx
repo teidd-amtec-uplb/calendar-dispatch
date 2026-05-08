@@ -5,8 +5,10 @@ import { useEffect, useState, useCallback } from "react";
 type Assignment = {
   id: string;
   profile_id: string;
+  staff_id?: string | null;
   assignment_type: string;
   profiles: { id: string; full_name: string; initials: string | null } | null;
+  staff?: { id: string; full_name: string; initials: string | null } | null;
 };
 
 type Machine = {
@@ -37,6 +39,11 @@ type AmatsSummary = {
   date_from: string | null;
   date_to: string | null;
   status: string;
+};
+
+type AmatsFull = AmatsSummary & {
+  amats_session_tests: { id: string; test_name: string }[];
+  amats_session_assignments: Assignment[];
 };
 
 type DispatchFull = DispatchSummary & {
@@ -99,7 +106,7 @@ const EVENT_TYPES: Record<string, { label: string; marker: string; bg: string; t
 
 // Legend for the calendar
 const LEGEND = [
-  { bg: "#7F1D1D",  text: "#FCD34D", marker: "●",   label: "Scheduled AMaTS session" },
+  { bg: "#7F1D1D",  text: "#FCD34D", marker: "M",   label: "Scheduled AMaTS session" },
   { bg: "#FCD34D",  text: "#78350F", marker: "S",   label: "Scheduled (with dispatch)" },
   { bg: "#10B981",  text: "#fff",    marker: "✓",   label: "Trip accomplished" },
   { bg: "#86EFAC",  text: "#14532D", marker: "S",   label: "S = Field Scheduler" },
@@ -117,7 +124,7 @@ const LEGEND = [
 function getDispatchCellStyle(status: string): { bg: string; text: string; marker: string } {
   switch (status) {
     case "Scheduled":    return { bg: "#FCD34D", text: "#78350F", marker: "S" };
-    case "Ongoing":      return { bg: "#FCD34D", text: "#78350F", marker: "●" };
+    case "Ongoing":      return { bg: "#FCD34D", text: "#78350F", marker: "S" };
     case "Done":         return { bg: "#10B981", text: "#fff",    marker: "✓" };
     case "Cancelled":    return { bg: "#C4B5FD", text: "#4C1D95", marker: "✕" };
     case "Re-scheduled": return { bg: "#FCD34D", text: "#78350F", marker: "R" };
@@ -131,7 +138,7 @@ function getAmatsCellStyle(status: string): { bg: string; text: string; marker: 
     case "Done":         return { bg: "#10B981", text: "#fff",    marker: "✓" };
     case "Cancelled":    return { bg: "#C4B5FD", text: "#4C1D95", marker: "✕" };
     case "Re-scheduled": return { bg: "#7F1D1D", text: "#FCD34D", marker: "R" };
-    default:             return { bg: "#7F1D1D", text: "#FCD34D", marker: "●" };
+    default:             return { bg: "#7F1D1D", text: "#FCD34D", marker: "M" };
   }
 }
 
@@ -163,6 +170,10 @@ function getDayKey(year: number, month: number, day: number): string {
 function getDispatchLocation(dispatch: DispatchSummary): string {
   if (dispatch.type === "in_house") return "AMTEC";
   return dispatch.testing_location ?? dispatch.location ?? "No location";
+}
+
+function getAssignmentName(assignment: Assignment): string {
+  return assignment.profiles?.full_name ?? assignment.staff?.full_name ?? "";
 }
 
 // ─── Tooltip ─────────────────────────────────────────────────────────────────
@@ -298,6 +309,8 @@ export default function WorkloadViewPage() {
   const [month, setMonth] = useState(now.getMonth() + 1);
   const [workload, setWorkload] = useState<StaffWorkload[]>([]);
   const [dispatchList, setDispatchList] = useState<DispatchFull[]>([]);
+  const [amatsSessionList, setAmatsSessionList] = useState<AmatsFull[]>([]);
+  const [listView, setListView] = useState<"dispatches" | "amats">("dispatches");
   const [events, setEvents] = useState<CalendarEvent[]>([]);
   const [loading, setLoading] = useState(true);
   const [tooltip, setTooltip] = useState<TooltipInfo | null>(null);
@@ -353,6 +366,7 @@ export default function WorkloadViewPage() {
     ]).then(([wData, eData]) => {
       setWorkload(wData.workload ?? []);
       setDispatchList(wData.dispatchList ?? []);
+      setAmatsSessionList(wData.amatsSessionList ?? []);
       setEvents(eData.events ?? []);
       setLoading(false);
     }).catch(() => setLoading(false));
@@ -704,7 +718,37 @@ export default function WorkloadViewPage() {
               </table>
             </div>
 
+            <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
+              <div>
+                <h2 className="text-sm font-black text-gray-800 uppercase tracking-widest">
+                  {listView === "dispatches" ? "Dispatch List" : "AMaTS Sessions List"} — {MONTHS[month - 1]} {year}
+                </h2>
+                <p className="text-xs text-gray-400 mt-0.5">
+                  {listView === "dispatches" ? `${dispatchList.length} dispatches` : `${amatsSessionList.length} sessions`}
+                </p>
+              </div>
+              <div className="inline-flex rounded-lg border border-gray-300 bg-white p-1 shadow-sm">
+                <button
+                  type="button"
+                  onClick={() => setListView("dispatches")}
+                  className="rounded-md px-3 py-1.5 text-xs font-bold transition-colors"
+                  style={{ background: listView === "dispatches" ? "#1B2A6B" : "transparent", color: listView === "dispatches" ? "white" : "#6B7280" }}
+                >
+                  Dispatches
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setListView("amats")}
+                  className="rounded-md px-3 py-1.5 text-xs font-bold transition-colors"
+                  style={{ background: listView === "amats" ? "#1B2A6B" : "transparent", color: listView === "amats" ? "white" : "#6B7280" }}
+                >
+                  AMaTS Sessions
+                </button>
+              </div>
+            </div>
+
             {/* ──────────────────── DISPATCH LIST TABLE ──────────────────── */}
+            {listView === "dispatches" && (
             <div className="bg-white rounded-xl border border-gray-300 overflow-auto shadow-sm">
               <div className="px-5 py-3 border-b border-gray-300" style={{ background: "#F8F9FB" }}>
                 <h2 className="text-sm font-black text-gray-800 uppercase tracking-widest">
@@ -786,6 +830,80 @@ export default function WorkloadViewPage() {
                 </div>
               )}
             </div>
+            )}
+
+            {/* AMaTS sessions list */}
+            {listView === "amats" && (
+            <div className="bg-white rounded-xl border border-gray-300 overflow-auto shadow-sm">
+              <div className="px-5 py-3 border-b border-gray-300" style={{ background: "#F8F9FB" }}>
+                <h2 className="text-sm font-black text-gray-800 uppercase tracking-widest">
+                  AMaTS Sessions List — {MONTHS[month - 1]} {year}
+                </h2>
+                <p className="text-xs text-gray-400 mt-0.5">{amatsSessionList.length} sessions</p>
+              </div>
+              {amatsSessionList.length === 0 ? (
+                <div className="flex items-center justify-center py-12">
+                  <p className="text-sm text-gray-400">No AMaTS sessions this month.</p>
+                </div>
+              ) : (
+                <div className="overflow-x-auto" style={{ fontSize: "0.75rem" }}>
+                  <table className="w-full border-collapse">
+                    <thead>
+                      <tr style={{ background: "#F8F9FB" }}>
+                        {["Session #", "Status", "Date From", "Date To", "Machine Type", "Machine Details", "Tests", "Test Engineers", "Test Technicians"].map(h => (
+                          <th key={h} className="px-3 py-2.5 text-left text-xs font-bold uppercase tracking-wider text-gray-500 border-b border-gray-300 whitespace-nowrap">
+                            {h}
+                          </th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {amatsSessionList.map((s, idx) => {
+                        const cellStyle = getAmatsCellStyle(s.status);
+                        const engineers = s.amats_session_assignments
+                          ?.filter(a => a.assignment_type === "test_engineer")
+                          .map(getAssignmentName)
+                          .filter(Boolean) ?? [];
+                        const technicians = s.amats_session_assignments
+                          ?.filter(a => a.assignment_type === "test_technician")
+                          .map(getAssignmentName)
+                          .filter(Boolean) ?? [];
+                        const tests = s.amats_session_tests?.map(t => t.test_name).filter(Boolean) ?? [];
+
+                        return (
+                          <tr key={s.id} style={{ background: idx % 2 === 0 ? "white" : "#FAFAFA" }}
+                            className="hover:bg-red-50/40 transition-colors">
+                            <td className="px-3 py-2 border-b border-gray-300 font-mono font-semibold text-gray-700 whitespace-nowrap">
+                              {s.session_number ?? "—"}
+                            </td>
+                            <td className="px-3 py-2 border-b border-gray-300">
+                              <span className="px-2 py-0.5 rounded-full text-xs font-bold whitespace-nowrap"
+                                style={{ background: cellStyle.bg, color: cellStyle.text }}>
+                                {s.status}
+                              </span>
+                            </td>
+                            <td className="px-3 py-2 border-b border-gray-300 text-gray-600 whitespace-nowrap">{s.date_from ?? "—"}</td>
+                            <td className="px-3 py-2 border-b border-gray-300 text-gray-600 whitespace-nowrap">{s.date_to ?? "—"}</td>
+                            <td className="px-3 py-2 border-b border-gray-300 text-gray-700 font-medium whitespace-nowrap">{s.machine ?? "—"}</td>
+                            <td className="px-3 py-2 border-b border-gray-300 text-gray-600">{s.machine_name_or_code ?? "—"}</td>
+                            <td className="px-3 py-2 border-b border-gray-300 text-gray-600">
+                              {tests.length > 0 ? tests.join(", ") : "—"}
+                            </td>
+                            <td className="px-3 py-2 border-b border-gray-300 text-gray-600">
+                              {engineers.length > 0 ? engineers.join(", ") : "—"}
+                            </td>
+                            <td className="px-3 py-2 border-b border-gray-300 text-gray-600">
+                              {technicians.length > 0 ? technicians.join(", ") : "—"}
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+            )}
           </>
         )}
 

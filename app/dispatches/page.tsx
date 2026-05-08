@@ -18,7 +18,7 @@ type Dispatch = {
   location: string;
   dispatch_assignments: {
     assignment_type: "lead_engineer" | "assistant_engineer" | "technician";
-    staff: { full_name: string } | null;
+    staff: { full_name: string; initials?: string | null } | null;
   }[];
 };
 

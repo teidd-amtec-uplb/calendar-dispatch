@@ -311,37 +311,37 @@ export default function NewAMaTSSessionPage() {
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Machine Name
+                  Brand
                 </label>
                 <input
                   type="text"
                   value={machineName}
                   onChange={(e) => setMachineName(e.target.value)}
-                  placeholder="e.g. GOLDEN BOW"
+                  placeholder="e.g. Kubota"
                   className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-red-500 placeholder:text-gray-400"
                 />
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Brand Model
+                  Model
                 </label>
                 <input
                   type="text"
                   value={brandModel}
                   onChange={(e) => setBrandModel(e.target.value)}
-                  placeholder="e.g. 80DI"
+                  placeholder="e.g. SPU-68C"
                   className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-red-500 placeholder:text-gray-400"
                 />
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Code
+                  Serial Number
                 </label>
                 <input
                   type="text"
                   value={machineCode}
                   onChange={(e) => setMachineCode(e.target.value)}
-                  placeholder="e.g. TAM-001"
+                  placeholder="e.g. SN-12345"
                   className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-red-500 placeholder:text-gray-400"
                 />
               </div>

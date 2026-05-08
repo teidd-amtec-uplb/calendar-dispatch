@@ -67,6 +67,12 @@ export default function NewDispatchPage() {
   const [notes, setNotes] = useState("");
   const [remarks, setRemarks] = useState("");
   const [testingLocation, setTestingLocation] = useState("");
+
+  // Companies dropdown
+  type CompanyOption = { id: string; name: string; contact_person: string | null; contact_number: string | null };
+  const [companyOptions, setCompanyOptions] = useState<CompanyOption[]>([]);
+  const [companySearch, setCompanySearch] = useState("");
+  const [companyDropdownOpen, setCompanyDropdownOpen] = useState(false);
   const [locationType, setLocationType] = useState<"amtec" | "clients_place">("amtec");
   const [engineers, setEngineers] = useState<any[]>([]);
   const [technicians, setTechnicians] = useState<any[]>([]);
@@ -105,21 +111,24 @@ export default function NewDispatchPage() {
 
       setUserId(data.user.id);
 
-      const [engRes, techRes, instRes, machRes] = await Promise.all([
+      const [engRes, techRes, instRes, machRes, compRes] = await Promise.all([
         fetch("/api/staff/engineers"),
         fetch("/api/staff/technicians"),
         fetch("/api/instruments"),
         fetch("/api/machines"),
+        fetch("/api/companies"),
       ]);
       const engData = await engRes.json();
       const techData = await techRes.json();
       const instData = await instRes.json();
       const machData = await machRes.json();
+      const compData = await compRes.json();
       if (cancelled) return;
       setEngineers(engData.staff ?? []);
       setTechnicians(techData.staff ?? []);
       setInstrumentOptions(instData.instruments ?? []);
       setMachineOptions(machData.machines ?? []);
+      setCompanyOptions(compData.companies ?? []);
       setLoading(false);
     }
     loadAll();
@@ -325,10 +334,10 @@ export default function NewDispatchPage() {
           <p className="text-sm text-gray-500 mt-1">Fill in the details below to create a dispatch record.</p>
         </div>
 
-        <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+        <div className="bg-white rounded-xl border border-gray-200 shadow-sm">
 
           {/* Tab Bar */}
-          <div className="flex border-b border-gray-200" style={{ background: "#F8F9FB" }}>
+          <div className="flex border-b border-gray-200 rounded-t-xl overflow-hidden" style={{ background: "#F8F9FB" }}>
             {tabs.map(tab => (
               <button
                 key={tab.key}
@@ -446,11 +455,44 @@ export default function NewDispatchPage() {
                 <h2 className="text-xs font-bold uppercase tracking-widest text-gray-500">Company & Transport</h2>
               </div>
               <div className="px-6 py-5 grid grid-cols-1 md:grid-cols-2 gap-4 border-b border-gray-100">
-                <div>
+                <div className="relative">
                   <label className={labelClass}>Company Name</label>
                   <input className={inputClass} style={inputStyle}
-                    value={companyName} onChange={e => setCompanyName(e.target.value)}
-                    placeholder="e.g. Sample Company" />
+                    value={companySearch !== "" ? companySearch : companyName}
+                    onChange={e => {
+                      setCompanySearch(e.target.value);
+                      setCompanyName(e.target.value);
+                      setCompanyDropdownOpen(true);
+                    }}
+                    onFocus={() => setCompanyDropdownOpen(true)}
+                    onBlur={() => setTimeout(() => setCompanyDropdownOpen(false), 150)}
+                    placeholder="Search or type company name..."
+                  />
+                  {companyDropdownOpen && (
+                    <ul className="absolute z-30 mt-1 w-full rounded-lg border border-gray-200 bg-white shadow-lg max-h-48 overflow-y-auto text-sm">
+                      {companyOptions
+                        .filter(c => c.name.toLowerCase().includes((companySearch || companyName).toLowerCase()))
+                        .map(c => (
+                          <li
+                            key={c.id}
+                            onMouseDown={() => {
+                              setCompanyName(c.name);
+                              setCompanySearch(c.name);
+                              const contact = [c.contact_person, c.contact_number].filter(Boolean).join(" - ");
+                              if (contact) setContactInfo(contact);
+                              setCompanyDropdownOpen(false);
+                            }}
+                            className="px-4 py-2 cursor-pointer hover:bg-indigo-50 hover:text-indigo-700"
+                          >
+                            <span className="font-medium">{c.name}</span>
+                            {c.contact_person && <span className="ml-2 text-gray-400 text-xs">{c.contact_person}</span>}
+                          </li>
+                        ))}
+                      {companyOptions.filter(c => c.name.toLowerCase().includes((companySearch || companyName).toLowerCase())).length === 0 && (
+                        <li className="px-4 py-2 text-gray-400 italic">No matching companies — will save as typed</li>
+                      )}
+                    </ul>
+                  )}
                 </div>
                 <div>
                   <label className={labelClass}>Contact Person / Info</label>

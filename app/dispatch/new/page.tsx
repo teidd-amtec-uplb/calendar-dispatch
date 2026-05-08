@@ -482,14 +482,14 @@ export default function NewDispatchPage() {
                               if (contact) setContactInfo(contact);
                               setCompanyDropdownOpen(false);
                             }}
-                            className="px-4 py-2 cursor-pointer hover:bg-indigo-50 hover:text-indigo-700"
+                            className="px-4 py-2.5 cursor-pointer text-gray-800 hover:bg-indigo-50 hover:text-indigo-700 border-b border-gray-50 last:border-0"
                           >
-                            <span className="font-medium">{c.name}</span>
-                            {c.contact_person && <span className="ml-2 text-gray-400 text-xs">{c.contact_person}</span>}
+                            <span className="font-semibold text-gray-900">{c.name}</span>
+                            {c.contact_person && <span className="ml-2 text-gray-500 text-xs">{c.contact_person}</span>}
                           </li>
                         ))}
                       {companyOptions.filter(c => c.name.toLowerCase().includes((companySearch || companyName).toLowerCase())).length === 0 && (
-                        <li className="px-4 py-2 text-gray-400 italic">No matching companies — will save as typed</li>
+                        <li className="px-4 py-2.5 text-gray-500 italic">No matching companies — will save as typed</li>
                       )}
                     </ul>
                   )}

@@ -46,15 +46,15 @@ input[type="time"] {
 }
 
 ::placeholder {
-  color: #4B5563 !important;
+  color: #374151 !important;
   opacity: 1 !important;
 }
 
 ::-webkit-input-placeholder {
-  color: #4B5563 !important;
+  color: #374151 !important;
 }
 
 ::-moz-placeholder {
-  color: #4B5563 !important;
+  color: #374151 !important;
   opacity: 1 !important;
 }

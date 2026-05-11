@@ -49,6 +49,22 @@ function newSelectedInstrument(auto_added = false): SelectedInstrument {
   return { rowId: crypto.randomUUID(), instrument_id: "", instrument_name: "", code_brand_model: "", before_travel: "", remarks: "", auto_added };
 }
 
+function getDispatchSuffix(value: string): string {
+  // Strip leading "DIS-" if the user pastes the full number
+  return value.trim().replace(/^DIS-/i, "").trim();
+}
+
+function formatDispatchNumber(suffix: string): string {
+  return `DIS-${suffix}`;
+}
+
+function validateDispatchNumber(val: string) {
+  const suffix = getDispatchSuffix(val);
+  if (!suffix) return "Dispatch number is required (e.g. 2026-0001)";
+  if (!/^\d{4}-\d+$/.test(suffix)) return "Format must be yyyy-#### (e.g. 2026-0001)";
+  return "";
+}
+
 export default function NewDispatchPage() {
   const router = useRouter();
   const supabase = useMemo(() => supabaseBrowser(), []);
@@ -56,6 +72,10 @@ export default function NewDispatchPage() {
   const [activeTab, setActiveTab] = useState<Tab>("basic");
   const [loading, setLoading] = useState(true);
   const [userId, setUserId] = useState("");
+
+  // Dispatch Number
+  const [dispatchNumber, setDispatchNumber] = useState("");
+  const [dispatchNumberError, setDispatchNumberError] = useState("");
 
   // Basic Info
   const [dateFrom, setDateFrom] = useState("");
@@ -260,6 +280,25 @@ export default function NewDispatchPage() {
 
   // ── Save ────────────────────────────────────────────────────────────────────
   async function saveDispatch() {
+    setMsg("");
+
+    // Validate dispatch number first
+    const numErr = validateDispatchNumber(dispatchNumber);
+    if (numErr) {
+      setDispatchNumberError(numErr);
+      setActiveTab("basic");
+      setMsg("Please fix the errors above.");
+      setMsgType("error");
+      return;
+    }
+
+    if (!selectedEngineerIds.length) {
+      setMsg("At least one engineer is required.");
+      setMsgType("error");
+      setActiveTab("basic");
+      return;
+    }
+
     setMsg("Saving...");
     setMsgType("error");
 
@@ -275,11 +314,15 @@ export default function NewDispatchPage() {
       .filter(m => m.machine.trim() !== "")
       .map(({ id, ...rest }) => rest);
 
+    // Determine lead vs assistant engineers
+    const [leadEngineerId, ...assistantEngineerIds] = selectedEngineerIds;
+
     const res = await fetch("/api/dispatches", {
       method: "POST",
       headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
       body: JSON.stringify({
         userId,
+        dispatch_number: formatDispatchNumber(getDispatchSuffix(dispatchNumber)),
         date_from: dateFrom,
         date_to: dateTo,
         company_name: companyName,
@@ -290,7 +333,8 @@ export default function NewDispatchPage() {
         transport_other_text: transportMode === "other" ? transportOther : null,
         notes,
         remarks_observation: remarks,
-        engineer_ids: selectedEngineerIds,
+        lead_engineer_id: leadEngineerId,
+        assistant_engineer_ids: assistantEngineerIds,
         technician_ids: selectedTechnicianIds,
         instruments: cleanInstruments,
         itinerary: [],
@@ -299,10 +343,10 @@ export default function NewDispatchPage() {
     });
 
     const data = await res.json();
-    if (!res.ok) { setMsg(`Error: ${data.error ?? "Unknown error"}`); return; }
+    if (!res.ok) { setMsg(`Error: ${data.error ?? "Unknown error"}`); setMsgType("error"); return; }
     setMsgType("success");
     setMsg("Dispatch created! Redirecting...");
-    setTimeout(() => router.push("/dashboard"), 1000);
+    setTimeout(() => router.push("/dispatches"), 1000);
   }
 
   if (loading) return (
@@ -357,6 +401,38 @@ export default function NewDispatchPage() {
           {/* ── TAB: Basic Info ─────────────────────────────────────────────── */}
           {activeTab === "basic" && (
             <>
+              {/* ── DISPATCH NUMBER ─────────────────────────────────────────── */}
+              <div className="px-6 py-4 border-b border-gray-100" style={{ background: "#F8F9FB" }}>
+                <h2 className="text-xs font-bold uppercase tracking-widest text-gray-500">Dispatch Number</h2>
+              </div>
+              <div className="px-6 py-5 border-b border-gray-100">
+                <div className="max-w-xs">
+                  <label className={labelClass}>
+                    Dispatch Number <span className="text-red-500">*</span>
+                  </label>
+                  <div className={`flex overflow-hidden rounded-lg border bg-white focus-within:ring-2 focus-within:ring-blue-100 ${dispatchNumberError ? "border-red-400" : "border-gray-300"}`}>
+                    <span className="flex items-center border-r border-gray-300 bg-gray-50 px-3 text-sm font-semibold text-gray-700 whitespace-nowrap">
+                      DIS-
+                    </span>
+                    <input
+                      className="w-full border-0 px-3 py-2.5 text-sm text-gray-900 outline-none"
+                      style={{ background: "white", color: "#111827" }}
+                      placeholder="2026-0001"
+                      value={dispatchNumber}
+                      onChange={e => {
+                        setDispatchNumber(getDispatchSuffix(e.target.value));
+                        setDispatchNumberError("");
+                      }}
+                      onBlur={e => setDispatchNumberError(validateDispatchNumber(e.target.value))}
+                    />
+                  </div>
+                  {dispatchNumberError
+                    ? <p className="text-xs text-red-500 mt-1">{dispatchNumberError}</p>
+                    : <p className="text-xs text-gray-400 mt-1">Enter yyyy-#### (e.g. 2026-0001). "DIS-" is added automatically.</p>
+                  }
+                </div>
+              </div>
+
               {/* Schedule */}
               <div className="px-6 py-4 border-b border-gray-100" style={{ background: "#F8F9FB" }}>
                 <h2 className="text-xs font-bold uppercase tracking-widest text-gray-500">Schedule</h2>
@@ -377,6 +453,7 @@ export default function NewDispatchPage() {
               {/* Personnel — Checkboxes */}
               <div className="px-6 py-4 border-b border-gray-100" style={{ background: "#F8F9FB" }}>
                 <h2 className="text-xs font-bold uppercase tracking-widest text-gray-500">Personnel Assignment</h2>
+                <p className="text-xs text-gray-400 mt-0.5">The first engineer selected will be treated as the Lead Engineer.</p>
               </div>
               <div className="px-6 py-5 grid grid-cols-1 md:grid-cols-2 gap-6 border-b border-gray-100">
                 {/* Engineers */}
@@ -386,6 +463,11 @@ export default function NewDispatchPage() {
                     {selectedEngineerIds.length > 0 && (
                       <span className="ml-2 normal-case font-normal text-blue-500">
                         {selectedEngineerIds.length} selected
+                        {selectedEngineerIds.length > 0 && (
+                          <span className="ml-1 text-gray-400">
+                            (Lead: {engineers.find(e => e.id === selectedEngineerIds[0])?.full_name?.split(" ").pop() ?? "—"})
+                          </span>
+                        )}
                       </span>
                     )}
                   </label>
@@ -393,23 +475,31 @@ export default function NewDispatchPage() {
                     <p className="text-xs text-gray-400 italic">No engineers available.</p>
                   ) : (
                     <div className="space-y-2 max-h-48 overflow-y-auto pr-1">
-                      {engineers.map(p => (
-                        <label key={p.id}
-                          className="flex items-center gap-3 px-3 py-2.5 rounded-lg border cursor-pointer transition-all"
-                          style={{
-                            borderColor: selectedEngineerIds.includes(p.id) ? "#1B2A6B" : "#E5E7EB",
-                            background: selectedEngineerIds.includes(p.id) ? "#EEF1FB" : "white",
-                          }}>
-                          <input
-                            type="checkbox"
-                            checked={selectedEngineerIds.includes(p.id)}
-                            onChange={() => toggleEngineer(p.id)}
-                            className="rounded"
-                            style={{ accentColor: "#1B2A6B" }}
-                          />
-                          <span className="text-sm text-gray-800">{p.full_name}</span>
-                        </label>
-                      ))}
+                      {engineers.map(p => {
+                        const isSelected = selectedEngineerIds.includes(p.id);
+                        const isLead = selectedEngineerIds[0] === p.id;
+                        return (
+                          <label key={p.id}
+                            className="flex items-center gap-3 px-3 py-2.5 rounded-lg border cursor-pointer transition-all"
+                            style={{
+                              borderColor: isSelected ? "#1B2A6B" : "#E5E7EB",
+                              background: isSelected ? "#EEF1FB" : "white",
+                            }}>
+                            <input
+                              type="checkbox"
+                              checked={isSelected}
+                              onChange={() => toggleEngineer(p.id)}
+                              className="rounded"
+                              style={{ accentColor: "#1B2A6B" }}
+                            />
+                            <span className="text-sm text-gray-800 flex-1">{p.full_name}</span>
+                            {isLead && (
+                              <span className="text-xs font-bold px-1.5 py-0.5 rounded"
+                                style={{ background: "#1B2A6B", color: "white" }}>Lead</span>
+                            )}
+                          </label>
+                        );
+                      })}
                     </div>
                   )}
                 </div>
@@ -602,7 +692,6 @@ export default function NewDispatchPage() {
                       </div>
 
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                        {/* Searchable instrument picker */}
                         <div className="md:col-span-2 relative">
                           <label className={labelClass}>Instrument Name</label>
                           <input
@@ -652,7 +741,6 @@ export default function NewDispatchPage() {
                           )}
                         </div>
 
-                        {/* Code / Brand / Model — auto-filled */}
                         <div>
                           <label className={labelClass}>Code / Brand / Model</label>
                           <input
@@ -665,7 +753,6 @@ export default function NewDispatchPage() {
                           />
                         </div>
 
-                        {/* Before Travel — radio buttons */}
                         <div>
                           <label className={labelClass}>Before Travel</label>
                           <div className="flex gap-4 mt-1">
@@ -692,7 +779,6 @@ export default function NewDispatchPage() {
                           </div>
                         </div>
 
-                        {/* Remarks */}
                         <div className="md:col-span-2">
                           <label className={labelClass}>Remarks</label>
                           <input
@@ -710,8 +796,6 @@ export default function NewDispatchPage() {
               </div>
             </div>
           )}
-
-
 
           {/* ── TAB: Machines ───────────────────────────────────────────────── */}
           {activeTab === "machines" && (

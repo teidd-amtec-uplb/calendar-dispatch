@@ -16,6 +16,7 @@ type Dispatch = {
   created_by_role?: string | null;
   type: string;
   location: string;
+  status: string | null;
   dispatch_assignments: {
     assignment_type: "lead_engineer" | "assistant_engineer" | "technician";
     staff: { full_name: string; initials?: string | null } | null;
@@ -29,18 +30,20 @@ const TRANSPORT_LABELS: Record<string, string> = {
   other: "Other",
 };
 
-// ─── Computed status ──────────────────────────────────────────────────────────
-type DispatchStatus = "Scheduled" | "Ongoing" | "Completed" | "Unknown";
+type DispatchStatus = "Scheduled" | "Re-scheduled" | "Ongoing" | "Done" | "Cancelled" | "Pending" | "Unknown";
 
-function getDispatchStatus(date_from: string | null, date_to: string | null): DispatchStatus {
-  if (!date_from || !date_to) return "Unknown";
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-  const from = parseLocalDate(date_from);
-  const to = parseLocalDate(date_to);
-  if (today < from) return "Scheduled";
-  if (today > to) return "Completed";
-  return "Ongoing";
+const STATUS_STYLES: Record<DispatchStatus, { bg: string; color: string }> = {
+  Scheduled:      { bg: "#EEF1FB", color: "#1B2A6B" },
+  "Re-scheduled": { bg: "#FDE68A", color: "#78350F" },
+  Ongoing:        { bg: "#DBEAFE", color: "#1E40AF" },
+  Done:           { bg: "#D1FAE5", color: "#065F46" },
+  Cancelled:      { bg: "#FEE2E2", color: "#991B1B" },
+  Pending:        { bg: "#FEF3C7", color: "#92400E" },
+  Unknown:        { bg: "#F3F4F6", color: "#6B7280" },
+};
+
+function getStatusStyle(status: string | null) {
+  return STATUS_STYLES[(status || "Unknown") as DispatchStatus] ?? STATUS_STYLES.Unknown;
 }
 
 function getSurname(fullName: string | null | undefined): string {
@@ -49,26 +52,21 @@ function getSurname(fullName: string | null | undefined): string {
   return parts[parts.length - 1];
 }
 
-function parseLocalDate(str: string) {
-  const [y, m, d] = str.split("-").map(Number);
-  return new Date(y, m - 1, d);
-}
-
-const STATUS_STYLES: Record<DispatchStatus, { bg: string; color: string }> = {
-  Scheduled: { bg: "#EEF1FB", color: "#1B2A6B" },
-  Ongoing:   { bg: "#DBEAFE", color: "#1E40AF" },
-  Completed: { bg: "#D1FAE5", color: "#065F46" },
-  Unknown:   { bg: "#F3F4F6", color: "#6B7280" },
-};
-
-function StatusBadge({ date_from, date_to }: { date_from: string | null; date_to: string | null }) {
-  const status = getDispatchStatus(date_from, date_to);
-  const s = STATUS_STYLES[status];
+function StatusBadge({ status }: { status: string | null }) {
+  const s = getStatusStyle(status);
   return (
     <span className="px-2 py-0.5 rounded-full text-xs font-semibold"
       style={{ background: s.bg, color: s.color }}>
-      {status}
+      {status || "Unknown"}
     </span>
+  );
+}
+
+function IconTrash() {
+  return (
+    <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+      <path strokeLinecap="round" strokeLinejoin="round" d="M3 6h18M8 6V4h8v2M6 6l1 15h10l1-15M10 11v6M14 11v6" />
+    </svg>
   );
 }
 
@@ -84,12 +82,15 @@ export default function DispatchListPage() {
   const [dateFromFilter, setDateFromFilter] = useState("");
   const [dateToFilter, setDateToFilter] = useState("");
   const [personnelFilter, setPersonnelFilter] = useState<string>("all");
-  const [sortBy, setSortBy] = useState<string>("date_desc");
-  
+
   const [role, setRole] = useState("");
   const [token, setToken] = useState("");
   const [noAssignments, setNoAssignments] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+
+  // ── Mass selection / delete ──────────────────────────────────────────────
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [deletingSelected, setDeletingSelected] = useState(false);
 
   const uniquePersonnel = useMemo(() => {
     const names = new Set<string>();
@@ -131,8 +132,9 @@ export default function DispatchListPage() {
     load();
   }, [router, supabase]);
 
+  // ── Single delete ──────────────────────────────────────────────────────────
   async function handleDeleteDispatch(e: React.MouseEvent, d: Dispatch) {
-    e.stopPropagation(); // prevent row click navigation
+    e.stopPropagation();
     if (!token || deletingId) return;
 
     if (!confirm(`Are you sure you want to delete dispatch ${d.dispatch_number ?? "unnamed"}? This action cannot be undone.`)) {
@@ -150,14 +152,55 @@ export default function DispatchListPage() {
         alert(json.error ?? "Failed to delete dispatch");
         return;
       }
-      
-      // Update state locally
       setDispatches(prev => prev.filter(x => x.id !== d.id));
+      setSelectedIds(prev => { const n = new Set(prev); n.delete(d.id); return n; });
     } catch {
       alert("Failed to delete dispatch. Please try again.");
     } finally {
       setDeletingId(null);
     }
+  }
+
+  // ── Mass delete ────────────────────────────────────────────────────────────
+  async function handleDeleteSelected() {
+    if (!token || selectedIds.size === 0 || deletingSelected) return;
+
+    const label = selectedIds.size === 1 ? "dispatch" : "dispatches";
+    if (!confirm(`Permanently delete ${selectedIds.size} selected ${label}? This cannot be undone.`)) return;
+
+    setDeletingSelected(true);
+    try {
+      const results = await Promise.all(
+        Array.from(selectedIds).map(async id => {
+          const res = await fetch(`/api/dispatches/${id}`, {
+            method: "DELETE",
+            headers: { Authorization: `Bearer ${token}` },
+          });
+          return { id, ok: res.ok };
+        })
+      );
+
+      const failed = results.filter(r => !r.ok);
+      if (failed.length > 0) {
+        alert(`Failed to delete ${failed.length} dispatch(es). The rest were deleted successfully.`);
+      }
+
+      const deletedIds = new Set(results.filter(r => r.ok).map(r => r.id));
+      setDispatches(prev => prev.filter(d => !deletedIds.has(d.id)));
+      setSelectedIds(new Set());
+    } catch {
+      alert("Failed to delete. Please try again.");
+    } finally {
+      setDeletingSelected(false);
+    }
+  }
+
+  function toggleSelect(id: string) {
+    setSelectedIds(prev => {
+      const n = new Set(prev);
+      if (n.has(id)) n.delete(id); else n.add(id);
+      return n;
+    });
   }
 
   function clearFilters() {
@@ -169,62 +212,55 @@ export default function DispatchListPage() {
     setPersonnelFilter("all");
   }
 
-  let filtered = dispatches.filter((d) => {
-    const q = search.toLowerCase();
-    const matchesSearch =
-      d.dispatch_number?.toLowerCase().includes(q) ||
-      d.company_name?.toLowerCase().includes(q) ||
-      d.location?.toLowerCase().includes(q);
-      
-    const matchesDispatchNumber =
-      !dispatchNumberFilter.trim() ||
-      d.dispatch_number?.toLowerCase().includes(dispatchNumberFilter.trim().toLowerCase());
+  const filtered = useMemo(() => {
+    return dispatches.filter((d) => {
+      const q = search.toLowerCase();
+      const matchesSearch =
+        d.dispatch_number?.toLowerCase().includes(q) ||
+        d.company_name?.toLowerCase().includes(q) ||
+        d.location?.toLowerCase().includes(q);
 
-    const matchesStatus =
-      statusFilter === "all" ||
-      getDispatchStatus(d.date_from, d.date_to) === statusFilter;
+      const matchesDispatchNumber =
+        !dispatchNumberFilter.trim() ||
+        d.dispatch_number?.toLowerCase().includes(dispatchNumberFilter.trim().toLowerCase());
 
-    const matchesDateFrom = !dateFromFilter || (d.date_to ?? "") >= dateFromFilter;
-    const matchesDateTo   = !dateToFilter   || (d.date_from ?? "") <= dateToFilter;
+      const matchesStatus =
+        statusFilter === "all" || (d.status ?? "Unknown") === statusFilter;
 
-    const matchesPersonnel =
-      personnelFilter === "all" ||
-      d.dispatch_assignments?.some(a => a.staff?.full_name === personnelFilter);
+      const matchesDateFrom = !dateFromFilter || (d.date_to ?? "") >= dateFromFilter;
+      const matchesDateTo   = !dateToFilter   || (d.date_from ?? "") <= dateToFilter;
 
-    return matchesSearch && matchesDispatchNumber && matchesStatus && matchesDateFrom && matchesDateTo && matchesPersonnel;
-  });
+      const matchesPersonnel =
+        personnelFilter === "all" ||
+        d.dispatch_assignments?.some(a => a.staff?.full_name === personnelFilter);
 
-  filtered = filtered.sort((a, b) => {
-    if (sortBy === "date_desc") {
-      return (b.date_from || "").localeCompare(a.date_from || "");
-    }
-    if (sortBy === "date_asc") {
-      return (a.date_from || "").localeCompare(b.date_from || "");
-    }
-    if (sortBy === "dispatch_asc") {
-      return (a.dispatch_number || "").localeCompare(b.dispatch_number || "");
-    }
-    if (sortBy === "dispatch_desc") {
-      return (b.dispatch_number || "").localeCompare(a.dispatch_number || "");
-    }
-    if (sortBy === "engineers_asc") {
-      const eA = a.dispatch_assignments?.filter(x => ["lead_engineer", "assistant_engineer"].includes(x.assignment_type)).map(x => x.staff?.initials).join("") || "";
-      const eB = b.dispatch_assignments?.filter(x => ["lead_engineer", "assistant_engineer"].includes(x.assignment_type)).map(x => x.staff?.initials).join("") || "";
-      return eA.localeCompare(eB);
-    }
-    if (sortBy === "technicians_asc") {
-      const tA = a.dispatch_assignments?.filter(x => x.assignment_type === "technician").map(x => x.staff?.initials).join("") || "";
-      const tB = b.dispatch_assignments?.filter(x => x.assignment_type === "technician").map(x => x.staff?.initials).join("") || "";
-      return tA.localeCompare(tB);
-    }
-    return 0;
-  });
+      return matchesSearch && matchesDispatchNumber && matchesStatus && matchesDateFrom && matchesDateTo && matchesPersonnel;
+    }).sort((a, b) => (b.date_from || "").localeCompare(a.date_from || ""));
+  }, [dispatches, search, dispatchNumberFilter, statusFilter, dateFromFilter, dateToFilter, personnelFilter]);
+
+  const allFilteredSelected = filtered.length > 0 && filtered.every(d => selectedIds.has(d.id));
+
+  function toggleAllFiltered() {
+    setSelectedIds(prev => {
+      const n = new Set(prev);
+      if (allFilteredSelected) {
+        filtered.forEach(d => n.delete(d.id));
+      } else {
+        filtered.forEach(d => n.add(d.id));
+      }
+      return n;
+    });
+  }
+
+  const isScheduler = role === "admin_scheduler";
 
   if (loading) return (
     <div className="min-h-screen flex items-center justify-center bg-gray-50">
       <p className="text-gray-500 text-sm">Loading dispatches...</p>
     </div>
   );
+
+  const allStatuses = ["Scheduled", "Re-scheduled", "Ongoing", "Done", "Cancelled", "Pending"];
 
   return (
     <AppLayout>
@@ -237,12 +273,23 @@ export default function DispatchListPage() {
               <h1 className="text-2xl font-bold text-gray-900">Dispatches</h1>
               <p className="text-sm text-gray-500 mt-1">{dispatches.length} total records</p>
             </div>
-            <div className="flex flex-wrap gap-3">
+            <div className="flex flex-wrap gap-3 items-center">
+              {/* Bulk delete button — only visible when items are selected */}
+              {isScheduler && selectedIds.size > 0 && (
+                <button
+                  onClick={handleDeleteSelected}
+                  disabled={deletingSelected}
+                  className="flex items-center gap-2 px-4 py-2 text-sm font-semibold rounded-lg border border-red-200 bg-red-50 text-red-700 hover:bg-red-100 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                >
+                  <IconTrash />
+                  {deletingSelected ? "Deleting..." : `Delete Selected (${selectedIds.size})`}
+                </button>
+              )}
               <Link href="/dashboard"
                 className="px-4 py-2 text-sm border border-gray-300 rounded hover:bg-gray-100 text-gray-700">
                 ← Dashboard
               </Link>
-              {role === "admin_scheduler" && (
+              {isScheduler && (
                 <Link href="/dispatch/new"
                   className="px-4 py-2 text-sm text-white rounded hover:opacity-90"
                   style={{ background: "#1B2A6B" }}>
@@ -252,7 +299,7 @@ export default function DispatchListPage() {
             </div>
           </div>
 
-          {/* Filters & Sorting */}
+          {/* Filters */}
           <div className="mb-4 rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
             <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-6">
               <input
@@ -274,9 +321,7 @@ export default function DispatchListPage() {
                 value={statusFilter}
                 onChange={e => setStatusFilter(e.target.value)}>
                 <option value="all">All statuses</option>
-                <option value="Scheduled">Scheduled</option>
-                <option value="Ongoing">Ongoing</option>
-                <option value="Completed">Completed</option>
+                {allStatuses.map(s => <option key={s} value={s}>{s}</option>)}
               </select>
               <select
                 className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-600"
@@ -314,8 +359,21 @@ export default function DispatchListPage() {
                 />
               </label>
             </div>
-            <div className="mt-3 text-xs text-gray-500">
-              Showing {filtered.length} of {dispatches.length} dispatches
+            <div className="mt-3 text-xs text-gray-500 flex items-center gap-3">
+              <span>
+                Showing {filtered.length} of {dispatches.length} dispatches
+                {isScheduler && selectedIds.size > 0 && (
+                  <span className="ml-2 font-semibold text-red-600">· {selectedIds.size} selected</span>
+                )}
+              </span>
+              {isScheduler && selectedIds.size > 0 && (
+                <button
+                  onClick={() => setSelectedIds(new Set())}
+                  className="text-xs text-gray-400 hover:text-gray-600 underline"
+                >
+                  Clear selection
+                </button>
+              )}
             </div>
           </div>
 
@@ -324,6 +382,17 @@ export default function DispatchListPage() {
             <table className="w-full text-sm">
               <thead className="bg-gray-100 text-gray-600 uppercase text-xs tracking-wide">
                 <tr>
+                  {isScheduler && (
+                    <th className="w-12 px-4 py-3 text-left">
+                      <input
+                        type="checkbox"
+                        checked={allFilteredSelected}
+                        onChange={toggleAllFiltered}
+                        title="Select all visible dispatches"
+                        className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                      />
+                    </th>
+                  )}
                   <th className="px-4 py-3 text-left">Dispatch #</th>
                   <th className="px-4 py-3 text-left">Company</th>
                   <th className="px-4 py-3 text-left">Date From</th>
@@ -333,7 +402,7 @@ export default function DispatchListPage() {
                   <th className="px-4 py-3 text-left">Engineers</th>
                   <th className="px-4 py-3 text-left">Technicians</th>
                   <th className="px-4 py-3 text-left">Created</th>
-                  {role === "admin_scheduler" && (
+                  {isScheduler && (
                     <th className="px-4 py-3 text-left">Actions</th>
                   )}
                 </tr>
@@ -341,7 +410,7 @@ export default function DispatchListPage() {
               <tbody className="divide-y divide-gray-100">
                 {filtered.length === 0 ? (
                   <tr>
-                    <td colSpan={role === "admin_scheduler" ? 10 : 9} className="px-4 py-16 text-center">
+                    <td colSpan={isScheduler ? 11 : 9} className="px-4 py-16 text-center">
                       <p className="text-gray-500 font-semibold text-base mb-1">
                         {noAssignments ? "No dispatches assigned to you." : "No dispatches found."}
                       </p>
@@ -354,6 +423,7 @@ export default function DispatchListPage() {
                   </tr>
                 ) : (
                   filtered.map((d) => {
+                    const isSelected = selectedIds.has(d.id);
                     const engineers = d.dispatch_assignments
                       ?.filter((a) => ["lead_engineer", "assistant_engineer"].includes(a.assignment_type))
                       .map((a) => getSurname(a.staff?.full_name))
@@ -364,16 +434,30 @@ export default function DispatchListPage() {
                       .join(", ") || "—";
                     return (
                       <tr key={d.id}
-                        className="hover:bg-blue-50 cursor-pointer transition-colors"
+                        className={`cursor-pointer transition-colors ${isSelected ? "bg-blue-50" : "hover:bg-blue-50"}`}
                         onClick={() => router.push(`/dispatches/${d.id}`)}>
+                        {isScheduler && (
+                          <td className="px-4 py-3" onClick={e => e.stopPropagation()}>
+                            <input
+                              type="checkbox"
+                              checked={isSelected}
+                              onChange={() => toggleSelect(d.id)}
+                              className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                            />
+                          </td>
+                        )}
                         <td className="px-4 py-3 font-mono font-medium text-blue-700">
-                          {d.dispatch_number ?? "—"}
+                          <div className="flex items-center gap-1.5">
+                            <span className="w-2 h-2 rounded-full shrink-0"
+                              style={{ background: d.created_by_role === "AMaTS" ? "#7B1F2F" : "#1B2A6B" }} />
+                            {d.dispatch_number ?? "—"}
+                          </div>
                         </td>
                         <td className="px-4 py-3 text-gray-800">{d.company_name ?? "—"}</td>
                         <td className="px-4 py-3 text-gray-600">{d.date_from ?? "—"}</td>
                         <td className="px-4 py-3 text-gray-600">{d.date_to ?? "—"}</td>
                         <td className="px-4 py-3">
-                          <StatusBadge date_from={d.date_from} date_to={d.date_to} />
+                          <StatusBadge status={d.status} />
                         </td>
                         <td className="px-4 py-3 text-gray-600">
                           {TRANSPORT_LABELS[d.transport_mode ?? ""] ?? d.transport_mode ?? "—"}
@@ -383,11 +467,11 @@ export default function DispatchListPage() {
                         <td className="px-4 py-3 text-gray-400 text-xs">
                           {new Date(d.created_at).toLocaleDateString()}
                         </td>
-                        {role === "admin_scheduler" && (
-                          <td className="px-4 py-3">
+                        {isScheduler && (
+                          <td className="px-4 py-3" onClick={e => e.stopPropagation()}>
                             <button
                               onClick={(e) => handleDeleteDispatch(e, d)}
-                              disabled={!!deletingId}
+                              disabled={!!deletingId || deletingSelected}
                               title="Delete Dispatch"
                               className="p-1.5 rounded border transition-colors disabled:opacity-40 disabled:cursor-not-allowed hover:bg-red-50"
                               style={{ borderColor: "#DC2626", color: "#DC2626" }}>

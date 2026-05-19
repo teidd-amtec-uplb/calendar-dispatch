@@ -100,7 +100,7 @@ const EVENT_TYPES: Record<string, { label: string; marker: string; bg: string; t
   half_day_morning:    { label: "Half Day (AM)",         marker: "0.5", bg: "#FFFFFF", text: "#374151" },
   half_day_afternoon:  { label: "Half Day (PM)",         marker: "0.5", bg: "#4B5563", text: "#F9FAFB" },
   holiday:             { label: "Holiday",               marker: "",   bg: "#FCA5A5", text: "#7F1D1D" },
-  no_pasok:            { label: "No Pasok / Suspension", marker: "",   bg: "#C4B5FD", text: "#4C1D95" },
+  no_pasok:            { label: "Sick Leave", marker: "🌡️",   bg: "#C4B5FD", text: "#4C1D95" },
   scheduled:           { label: "Scheduled (no dispatch)",marker: "✶", bg: "#FCD34D", text: "#78350F" },
 };
 
@@ -117,7 +117,7 @@ const LEGEND = [
   { bg: "#FFFFFF",  text: "#374151", marker: "0.5", border: "#D1D5DB", label: "0.5 White = Half Day (AM)" },
   { bg: "#4B5563",  text: "#F9FAFB", marker: "0.5", label: "0.5 Dark = Half Day (PM)" },
   { bg: "#FCA5A5",  text: "#7F1D1D", marker: "",    label: "Red = Holiday" },
-  { bg: "#C4B5FD",  text: "#4C1D95", marker: "",    label: "No Pasok / Suspension" },
+  { bg: "#C4B5FD",  text: "#4C1D95", marker: "🌡️",    label: "Sick Leave" },
 ];
 
 // Dispatch status → cell style (for dispatched days)
@@ -561,7 +561,7 @@ export default function WorkloadViewPage() {
                   { id: "field_scheduler", bg: "#86EFAC", icon: "S", label: "Scheduler" },
                   { id: "amats_scheduler", bg: "#6EE7B7", icon: "M", label: "AMaTS" },
                   { id: "holiday", bg: "#FCA5A5", icon: "🎈", label: "Holiday" },
-                  { id: "no_pasok", bg: "#C4B5FD", icon: "🛑", label: "Suspension" },
+                  { id: "no_pasok", bg: "#C4B5FD", icon: "🌡️", label: "Sick Leave" },
                   { id: "offset_leave", bg: "#4B5563", icon: "🌙", label: "Offset" },
                   { id: "half_day_morning", border: "1px solid #D1D5DB", bg: "linear-gradient(135deg, white 50%, #f3f4f6 50%)", icon: "⛅", label: "Half (AM)" },
                   { id: "half_day_afternoon", border: "1px solid #4B5563", bg: "linear-gradient(135deg, #4B5563 50%, #374151 50%)", icon: "🌥️", label: "Half (PM)" },

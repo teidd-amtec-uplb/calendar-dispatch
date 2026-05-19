@@ -6,6 +6,7 @@ const VALID_TYPES = [
   "field_scheduler", "amats_scheduler", "wfh", "meeting",
   "offset_leave", "half_day_morning", "half_day_afternoon",
   "holiday", "no_pasok", "scheduled",
+  "sick_leave", "emergency_leave", "on_leave",
   // legacy values kept for backwards compat
   "day_off", "scheduler", "email",
 ];

@@ -4,7 +4,7 @@
 -- Core session table
 CREATE TABLE IF NOT EXISTS amats_sessions (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  session_number TEXT NOT NULL UNIQUE,               -- e.g. AMaTS-2026-0001
+  session_number TEXT NOT NULL,                       -- e.g. TAM 2026-0001 (duplicates allowed)
   machine TEXT NOT NULL,
   machine_name_or_code TEXT,                          -- Specific machine name or code
   date_from TIMESTAMPTZ NOT NULL,

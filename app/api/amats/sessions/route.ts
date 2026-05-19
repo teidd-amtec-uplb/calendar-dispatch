@@ -69,12 +69,6 @@ export async function POST(req: NextRequest) {
     .single();
 
   if (sessionError) {
-    if (sessionError.code === "23505") {
-      return NextResponse.json(
-        { error: "Session number already exists" },
-        { status: 409 }
-      );
-    }
     return NextResponse.json({ error: sessionError.message }, { status: 500 });
   }
 

@@ -206,56 +206,43 @@ export default function AMaTSSessionsPage() {
   }
 
   function buildCopyText(sessionsToCopy: AmatsSummary[]): string {
-    const byDate = new Map<string, AmatsSummary[]>();
-    sessionsToCopy.forEach((s) => {
-      const dateKey = s.date_from.slice(0, 10);
-      if (!byDate.has(dateKey)) byDate.set(dateKey, []);
-      byDate.get(dateKey)!.push(s);
+    // Use today's date — the date the copy action is performed
+    const today = new Date();
+    const dateLabel = today.toLocaleDateString("en-US", {
+      month: "long",
+      day: "numeric",
+      year: "numeric",
     });
 
-    const sections: string[] = [];
+    const lines: string[] = [];
+    lines.push(`Mechanical Laboratory Tests for ${dateLabel}`);
+    lines.push("");
 
-    byDate.forEach((daySessions, dateKey) => {
-      const dateLabel = new Date(dateKey + "T00:00:00").toLocaleDateString("en-US", {
-        month: "long",
-        day: "numeric",
-        year: "numeric",
-      });
+    sessionsToCopy.forEach((s, index) => {
+      const machineHeader = [s.machine_name_or_code, s.machine]
+        .filter(Boolean)
+        .join(" ");
 
-      const lines: string[] = [];
-      lines.push(`Mechanical Laboratory Tests for ${dateLabel}`);
+      const engineers = s.amats_session_assignments
+        .filter((a) => a.assignment_type === "test_engineer" && a.staff)
+        .map((a) => a.staff!.initials)
+        .join(", ");
+      const technicians = s.amats_session_assignments
+        .filter((a) => a.assignment_type === "test_technician" && a.staff)
+        .map((a) => a.staff!.initials)
+        .join(", ");
+
+      const testNames = s.amats_session_tests.map((t) => t.test_name).join(", ");
+
+      lines.push(`${index + 1}. ${machineHeader}`);
+      lines.push(testNames || "(no tests listed)");
+      lines.push(`Time: ${new Date(s.date_from).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", hour12: true })} - ${new Date(s.date_to).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", hour12: true })}`);
+      lines.push(`Engineer/s: ${engineers || "-"}`);
+      lines.push(`Technician/s – ${technicians || "-"}`);
       lines.push("");
-
-      let counter = 1;
-      daySessions.forEach((s) => {
-        const machineHeader = [s.machine_name_or_code, s.machine]
-          .filter(Boolean)
-          .join(" ");
-
-        const engineers = s.amats_session_assignments
-          .filter((a) => a.assignment_type === "test_engineer" && a.staff)
-          .map((a) => a.staff!.initials)
-          .join(", ");
-        const technicians = s.amats_session_assignments
-          .filter((a) => a.assignment_type === "test_technician" && a.staff)
-          .map((a) => a.staff!.initials)
-          .join(", ");
-
-        const testNames = s.amats_session_tests.map((t) => t.test_name).join(", ");
-
-        lines.push(`${counter}. ${machineHeader}`);
-        lines.push(testNames || "(no tests listed)");
-        lines.push(`Time: ${new Date(s.date_from).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", hour12: true })} - ${new Date(s.date_to).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", hour12: true })}`);
-        lines.push(`Engineer/s: ${engineers || "-"}`);
-        lines.push(`Technician/s: ${technicians || "-"}`);
-        lines.push("");
-        counter++;
-      });
-
-      sections.push(lines.join("\n"));
     });
 
-    return sections.join("\n");
+    return lines.join("\n").trimEnd();
   }
 
   async function handleCopySelected() {

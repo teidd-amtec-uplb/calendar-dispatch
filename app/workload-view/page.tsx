@@ -97,6 +97,9 @@ const EVENT_TYPES: Record<string, { label: string; marker: string; bg: string; t
   wfh:                 { label: "Work from Home",        marker: "W",   bg: "#BAE6FD", text: "#0C4A6E" },
   meeting:             { label: "Meeting / Office Event", marker: "📅", bg: "#C7D2FE", text: "#3730A3", needsTitle: true },
   offset_leave:        { label: "Offset / Emergency Leave", marker: "", bg: "#4B5563", text: "#F9FAFB" },
+  sick_leave:          { label: "Sick Leave", marker: "🌡️", bg: "#4B5563", text: "#F9FAFB" },
+  emergency_leave:     { label: "Emergency", marker: "🛑", bg: "#4B5563", text: "#F9FAFB" },
+  on_leave:            { label: "On Leave", marker: "", bg: "#4B5563", text: "#F9FAFB" },
   half_day_morning:    { label: "Half Day (AM)",         marker: "0.5", bg: "#FFFFFF", text: "#374151" },
   half_day_afternoon:  { label: "Half Day (PM)",         marker: "0.5", bg: "#4B5563", text: "#F9FAFB" },
   holiday:             { label: "Holiday",               marker: "",   bg: "#FCA5A5", text: "#7F1D1D" },
@@ -113,11 +116,12 @@ const LEGEND = [
   { bg: "#6EE7B7",  text: "#064E3B", marker: "M",   label: "M/m = AMaTS Scheduler" },
   { bg: "#BAE6FD",  text: "#0C4A6E", marker: "W",   label: "W = WFH" },
   { bg: "#C7D2FE",  text: "#3730A3", marker: "📅",  label: "Meeting / Event (with title)" },
-  { bg: "#4B5563",  text: "#F9FAFB", marker: "",    label: "Dark Grey = Offset / Emergency Leave" },
+  { bg: "#4B5563",  text: "#F9FAFB", marker: "",    label: "Dark Grey = On Leave" },
+  { bg: "#4B5563",  text: "#F9FAFB", marker: "🌡️",    label: "Sick Leave" },
+  { bg: "#4B5563",  text: "#F9FAFB", marker: "🛑",    label: "Emergency" },
   { bg: "#FFFFFF",  text: "#374151", marker: "0.5", border: "#D1D5DB", label: "0.5 White = Half Day (AM)" },
   { bg: "#4B5563",  text: "#F9FAFB", marker: "0.5", label: "0.5 Dark = Half Day (PM)" },
   { bg: "#FCA5A5",  text: "#7F1D1D", marker: "",    label: "Red = Holiday" },
-  { bg: "#C4B5FD",  text: "#4C1D95", marker: "🌡️",    label: "Sick Leave" },
 ];
 
 // Dispatch status → cell style (for dispatched days)
@@ -196,7 +200,7 @@ function EventModal({ personName, dateKey, current, onSave, onDelete, onClose }:
   const groups: { label: string; keys: string[] }[] = [
     { label: "Scheduling", keys: ["field_scheduler", "amats_scheduler", "scheduled"] },
     { label: "Work Mode",  keys: ["wfh"] },
-    { label: "Leave / Absence", keys: ["offset_leave", "half_day_morning", "half_day_afternoon", "holiday", "no_pasok"] },
+    { label: "Leave / Absence", keys: ["on_leave", "sick_leave", "emergency_leave", "half_day_morning", "half_day_afternoon", "holiday"] },
     { label: "Events",     keys: ["meeting"] },
   ];
 
@@ -325,6 +329,7 @@ export default function WorkloadViewPage() {
   const [dragAnchor, setDragAnchor] = useState<{ r: number, c: number } | null>(null);
   const [isDragging, setIsDragging] = useState(false);
   const [applyingBulk, setApplyingBulk] = useState(false);
+  const [showLeaveMenu, setShowLeaveMenu] = useState(false);
 
   useEffect(() => {
     function stopDrag() { setIsDragging(false); }
@@ -561,8 +566,6 @@ export default function WorkloadViewPage() {
                   { id: "field_scheduler", bg: "#86EFAC", icon: "S", label: "Scheduler" },
                   { id: "amats_scheduler", bg: "#6EE7B7", icon: "M", label: "AMaTS" },
                   { id: "holiday", bg: "#FCA5A5", icon: "🎈", label: "Holiday" },
-                  { id: "no_pasok", bg: "#C4B5FD", icon: "🌡️", label: "Sick Leave" },
-                  { id: "offset_leave", bg: "#4B5563", icon: "🌙", label: "Offset" },
                   { id: "half_day_morning", border: "1px solid #D1D5DB", bg: "linear-gradient(135deg, white 50%, #f3f4f6 50%)", icon: "⛅", label: "Half (AM)" },
                   { id: "half_day_afternoon", border: "1px solid #4B5563", bg: "linear-gradient(135deg, #4B5563 50%, #374151 50%)", icon: "🌥️", label: "Half (PM)" },
                   { id: "wfh", bg: "#BAE6FD", icon: "🏠", label: "WFH" },
@@ -576,6 +579,39 @@ export default function WorkloadViewPage() {
                   {t.label}
                 </button>
               ))}
+              
+              {/* On Leave dropdown */}
+              <div className="relative">
+                <button onClick={() => setShowLeaveMenu(!showLeaveMenu)}
+                  className="flex items-center gap-1.5 px-2 py-1.5 rounded border border-gray-300 bg-white hover:bg-gray-50 text-xs font-bold text-gray-700 shadow-sm hover:shadow transition-all">
+                  <span className="w-4 h-4 rounded-full inline-flex items-center justify-center text-[0.55rem] font-black" style={{ background: "#4B5563", color: "#F9FAFB" }}>
+                    🌙
+                  </span>
+                  On Leave
+                </button>
+                {showLeaveMenu && (
+                  <>
+                    <div className="fixed inset-0 z-40" onClick={() => setShowLeaveMenu(false)}></div>
+                    <div className="absolute top-full mt-1 left-1/2 -translate-x-1/2 w-48 bg-white border border-gray-200 rounded-lg shadow-xl z-50 overflow-hidden flex flex-col">
+                      {[
+                        { id: "sick_leave", icon: "🌡️", label: "Sick Leave" },
+                        { id: "emergency_leave", icon: "🛑", label: "Emergency" },
+                        { id: "on_leave", icon: "", label: "On Leave" },
+                      ].map(l => (
+                        <button key={l.id} 
+                          onClick={() => { applyActionToSelection(l.id); setShowLeaveMenu(false); }}
+                          className="w-full text-left px-3 py-2 text-xs font-bold text-gray-700 hover:bg-gray-50 flex items-center gap-2 border-b border-gray-100 last:border-0 relative z-50">
+                          <span className="w-5 h-5 rounded flex items-center justify-center font-black bg-gray-600 text-white" style={{ fontSize: "0.6rem" }}>
+                            {l.icon}
+                          </span>
+                          {l.label}
+                        </button>
+                      ))}
+                    </div>
+                  </>
+                )}
+              </div>
+
               <div className="w-px h-6 bg-gray-300 mx-1"></div>
               <button onClick={() => applyActionToSelection("delete")}
                 className="flex items-center gap-1 px-3 py-1.5 rounded bg-red-50 text-red-700 hover:bg-red-100 border border-red-200 text-xs font-bold shadow-sm transition-all hover:shadow">

@@ -295,9 +295,9 @@ export default function EditDispatchPage() {
 
   // ── Dispatch number validation ──────────────────────────────────────────────
   function validateDispatchNumber(val: string) {
-    const pattern = /^DIS-\d{4}-\d+$/i;
+    const pattern = /^DIS-\d{4}-\d+[a-zA-Z]?$/i;
     if (!val.trim()) return "Dispatch number is required.";
-    if (!pattern.test(val.trim())) return "Format must be DIS-yyyy-xxxx (e.g. DIS-2026-0001)";
+    if (!pattern.test(val.trim())) return "Format must be DIS-yyyy-xxxx (e.g. DIS-2026-0001 or DIS-2026-0001A)";
     return "";
   }
 

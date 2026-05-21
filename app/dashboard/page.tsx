@@ -158,6 +158,7 @@ export default function DashboardPage() {
     const map: Record<string, any[]> = {};
     if (filterSource !== 'amats') {
       for (const d of dispatches) {
+        if (d.status === 'Cancelled') continue;
         if (!d.date_from || !d.date_to) continue;
         const from = parseLocalDate(d.date_from);
         const to = parseLocalDate(d.date_to);
@@ -172,6 +173,7 @@ export default function DashboardPage() {
     }
     if (filterSource !== 'dispatch') {
       for (const s of amatsSessions) {
+        if (s.status === 'Cancelled') continue;
         if (!s.date_from || !s.date_to) continue;
         const from = parseLocalDate(s.date_from.slice(0,10));
         const to = parseLocalDate(s.date_to.slice(0,10));

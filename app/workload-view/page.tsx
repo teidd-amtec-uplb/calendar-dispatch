@@ -96,7 +96,7 @@ const EVENT_TYPES: Record<string, { label: string; marker: string; bg: string; t
   amats_scheduler:     { label: "AMaTS Scheduler",       marker: "M",   bg: "#6EE7B7", text: "#064E3B" },
   wfh:                 { label: "Work from Home",        marker: "W",   bg: "#BAE6FD", text: "#0C4A6E" },
   meeting:             { label: "Meeting / Office Event", marker: "📅", bg: "#C7D2FE", text: "#3730A3", needsTitle: true },
-  offset_leave:        { label: "Offset / Emergency Leave", marker: "", bg: "#4B5563", text: "#F9FAFB" },
+  offset_leave:        { label: "Offset Leave",           marker: "", bg: "#4B5563", text: "#F9FAFB" },
   sick_leave:          { label: "Sick Leave", marker: "🌡️", bg: "#4B5563", text: "#F9FAFB" },
   emergency_leave:     { label: "Emergency", marker: "🛑", bg: "#4B5563", text: "#F9FAFB" },
   on_leave:            { label: "On Leave", marker: "", bg: "#4B5563", text: "#F9FAFB" },
@@ -116,7 +116,7 @@ const LEGEND = [
   { bg: "#6EE7B7",  text: "#064E3B", marker: "M",   label: "M/m = AMaTS Scheduler" },
   { bg: "#BAE6FD",  text: "#0C4A6E", marker: "W",   label: "W = WFH" },
   { bg: "#C7D2FE",  text: "#3730A3", marker: "📅",  label: "Meeting / Event (with title)" },
-  { bg: "#4B5563",  text: "#F9FAFB", marker: "",    label: "Dark Grey = On Leave" },
+  { bg: "#4B5563",  text: "#F9FAFB", marker: "",    label: "Dark Grey = Offset Leave" },
   { bg: "#4B5563",  text: "#F9FAFB", marker: "🌡️",    label: "Sick Leave" },
   { bg: "#4B5563",  text: "#F9FAFB", marker: "🛑",    label: "Emergency" },
   { bg: "#FFFFFF",  text: "#374151", marker: "0.5", border: "#D1D5DB", label: "0.5 White = Half Day (AM)" },
@@ -200,7 +200,7 @@ function EventModal({ personName, dateKey, current, onSave, onDelete, onClose }:
   const groups: { label: string; keys: string[] }[] = [
     { label: "Scheduling", keys: ["field_scheduler", "amats_scheduler", "scheduled"] },
     { label: "Work Mode",  keys: ["wfh"] },
-    { label: "Leave / Absence", keys: ["on_leave", "sick_leave", "emergency_leave", "half_day_morning", "half_day_afternoon", "holiday"] },
+    { label: "Leave / Absence", keys: ["offset_leave", "sick_leave", "emergency_leave", "half_day_morning", "half_day_afternoon", "holiday"] },
     { label: "Events",     keys: ["meeting"] },
   ];
 
@@ -596,7 +596,7 @@ export default function WorkloadViewPage() {
                       {[
                         { id: "sick_leave", icon: "🌡️", label: "Sick Leave" },
                         { id: "emergency_leave", icon: "🛑", label: "Emergency" },
-                        { id: "on_leave", icon: "", label: "On Leave" },
+                        { id: "offset_leave", icon: "", label: "Offset Leave" },
                       ].map(l => (
                         <button key={l.id} 
                           onClick={() => { applyActionToSelection(l.id); setShowLeaveMenu(false); }}

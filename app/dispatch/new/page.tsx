@@ -61,7 +61,7 @@ function formatDispatchNumber(suffix: string): string {
 function validateDispatchNumber(val: string) {
   const suffix = getDispatchSuffix(val);
   if (!suffix) return "Dispatch number is required (e.g. 2026-0001)";
-  if (!/^\d{4}-\d+$/.test(suffix)) return "Format must be yyyy-#### (e.g. 2026-0001)";
+  if (!/^\d{4}-\d+[a-zA-Z]?$/.test(suffix)) return "Format must be yyyy-#### (e.g. 2026-0001 or 2026-0001A)";
   return "";
 }
 
@@ -322,7 +322,7 @@ export default function NewDispatchPage() {
       headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
       body: JSON.stringify({
         userId,
-        dispatch_number: formatDispatchNumber(getDispatchSuffix(dispatchNumber)),
+        dispatch_number: formatDispatchNumber(getDispatchSuffix(dispatchNumber).trim().toUpperCase()),
         date_from: dateFrom,
         date_to: dateTo,
         company_name: companyName,

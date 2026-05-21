@@ -124,18 +124,18 @@ export async function GET(req: Request) {
   const workload = (staffList ?? []).map((person) => {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const myDispatches = liveDispatches.filter((d: any) =>
+      d.status !== "Cancelled" &&
       (d.dispatch_assignments as { staff_id: string | null }[])?.some(
         (a) => a.staff_id === person.id
       )
     );
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const myAmatsSessions = liveAmatsSessions.filter((s: any) =>
+      s.status !== "Cancelled" &&
       (s.amats_session_assignments as { staff_id: string | null }[])?.some(
         (a) => a.staff_id === person.id
       )
     );
-
-    // Count total dispatch days this month
     const daysInMonth = new Date(year, month, 0).getDate();
     let travelDays = 0;
     for (const d of myDispatches) {

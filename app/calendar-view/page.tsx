@@ -116,7 +116,8 @@ export default function CalendarViewPage() {
     const map: Record<string, any[]> = {};
     if (filterSource !== 'amats') {
       const filtered = filterStatus === 'All' ? dispatches : dispatches.filter(d => d.status === filterStatus);
-      for (const d of filtered) {
+      const activeOnly = filtered.filter(d => d.status !== 'Cancelled');
+      for (const d of activeOnly) {
         if (!d.date_from || !d.date_to) continue;
         for (const key of getDateRange(d.date_from, d.date_to)) {
           if (!map[key]) map[key] = [];
@@ -126,7 +127,8 @@ export default function CalendarViewPage() {
     }
     if (filterSource !== 'dispatch') {
       const filtered = filterStatus === 'All' ? amatsSessions : amatsSessions.filter(s => s.status === filterStatus);
-      for (const s of filtered) {
+      const activeOnly = filtered.filter(s => s.status !== 'Cancelled');
+      for (const s of activeOnly) {
         if (!s.date_from || !s.date_to) continue;
         const from = s.date_from.slice(0, 10);
         const to = s.date_to.slice(0, 10);
@@ -188,7 +190,7 @@ export default function CalendarViewPage() {
         <div className="flex items-center gap-3">
           {/* Status filter */}
           <div className="flex items-center gap-1.5 flex-wrap">
-            {["All", "Scheduled", "Ongoing", "Done", "Pending", "Re-scheduled", "Cancelled"].map(s => (
+            {["All", "Scheduled", "Ongoing", "Done", "Pending", "Re-scheduled"].map(s => (
               <button key={s} onClick={() => setFilterStatus(s)}
                 className="px-3 py-1 rounded-full text-xs font-semibold transition-all"
                 style={{
